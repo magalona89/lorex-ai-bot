@@ -1,4 +1,5 @@
 const axios = require('axios');
+const moment = require('moment-timezone');
 
 function convertToBold(text) {
   const boldMap = {
@@ -15,39 +16,29 @@ function convertToBold(text) {
   return text.split('').map(char => boldMap[char] || char).join('');
 }
 
-module.exports.config = {
-  name: 'ai',
-  version: '1.0.1',
-  hasPermission: 0,
-  usePrefix: false,
-  aliases: ['gpt', 'openai'],
-  description: "An AI command powered by GPT-4o.",
-  usages: "ai [prompt]",
-  credits: 'LorexAi',
-  cooldowns: 3,
-  dependencies: {
-    "axios": ""
-  }
-};
-
 module.exports.run = async function({ api, event, args }) {
   const input = args.join(' ');
   const uid = event.senderID;
 
-  const isPhoto = event.type === "message_reply" && event.messageReply.attachments[0]?.type === "photo";
-  
+  // Get current time in PH timezone
+  const phTime = moment().tz('Asia/Manila').format('MMMM D, YYYY (dddd) — h:mm A');
+
+  const isPhoto = event.type === "message_reply" &&
+                  event.messageReply?.attachments &&
+                  event.messageReply.attachments[0]?.type === "photo";
+
   if (isPhoto) {
     const photoUrl = event.messageReply.attachments[0].url;
 
     if (!input) {
       return api.sendMessage(
-        "Please provide a prompt along with the image (e.g., 'ai describe this image').",
+        `📸 𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝗽𝗿𝗼𝗺𝗽𝘁 𝗸𝗮𝘀𝗮𝗯𝗮𝘆 𝗻𝗴 𝗹𝗮𝗿𝗮𝘄𝗮𝗻.\nExample: "ai describe this image"`,
         event.threadID,
         event.messageID
       );
     }
 
-    api.sendMessage("🔄 Analyzing image...", event.threadID, event.messageID);
+    api.sendMessage(`🧠 GPT-5 Vision is analyzing the image...\n⏰ **PH Time:** ${phTime}`, event.threadID, event.messageID);
 
     try {
       const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/gemini-vision', {
@@ -59,28 +50,22 @@ module.exports.run = async function({ api, event, args }) {
         }
       });
 
-      if (data && data.response) {
-        return api.sendMessage(data.response, event.threadID, event.messageID);
+      if (data?.response) {
+        return api.sendMessage(`📤 𝗥𝗲𝘀𝘂𝗹𝘁:\n\n${data.response}`, event.threadID, event.messageID);
       } else {
-        return api.sendMessage("Unexpected response format from the image analysis API.", event.threadID, event.messageID);
+        return api.sendMessage("⚠️ Unexpected response format from the image analysis API.", event.threadID, event.messageID);
       }
     } catch (error) {
       console.error("Error processing image analysis request:", error.message || error);
-      api.sendMessage("An error occurred while processing the image. Please try again.", event.threadID, event.messageID);
+      return api.sendMessage("❌ An error occurred while processing the image. Please try again.", event.threadID, event.messageID);
     }
-
-    return;
   }
 
   if (!input) {
-    return api.sendMessage(
-      "❌ Please provide a query or prompt",
-      event.threadID,
-      event.messageID
-    );
+    return api.sendMessage("❌ 𝗣𝗮𝗸𝗶 𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝗽𝗿𝗼𝗺𝗽𝘁. Example: ai What is quantum physics?", event.threadID, event.messageID);
   }
 
-  api.sendMessage("🔄 Generating...", event.threadID, event.messageID);
+  api.sendMessage(`🤖 GPT-5 is thinking...\n⏰ **PH Time:** ${phTime}`, event.threadID, event.messageID);
 
   try {
     const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/gemini-flash-2.0', {
@@ -91,20 +76,21 @@ module.exports.run = async function({ api, event, args }) {
       }
     });
 
-    if (!data || !data.response) {
-      return api.sendMessage("Sorry, I didn't quite catch that. Could you please try asking again?", event.threadID, event.messageID);
+    if (!data?.response) {
+      return api.sendMessage("😕 I didn’t quite catch that. Could you try again?", event.threadID, event.messageID);
     }
 
     const formattedResponse = data.response
       .replace(/\*\*(.*?)\*\*/g, (_, text) => convertToBold(text))
       .replace(/##(.*?)##/g, (_, text) => convertToBold(text))
-      .replace(/###\s*/g, '')
+      .replace(/^###\s*/gm, '')
       .replace(/\n{3,}/g, '\n\n');
 
-    return api.sendMessage(formattedResponse, event.threadID, event.messageID);
+    const fullMessage = `✅ 𝗔𝗜 𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲\n⏰ **Date & Time:** ${phTime}\n\n${formattedResponse}`;
 
+    return api.sendMessage(fullMessage, event.threadID, event.messageID);
   } catch (error) {
-    console.error("⛔ Error processing request:", error.message || error);
-    return api.sendMessage("⛔ An error occurred while processing your request. Please try again.", event.threadID, event.messageID);
+    console.error("⛔ Error:", error.message || error);
+    return api.sendMessage("⛔ Error processing your request. Please try again.", event.threadID, event.messageID);
   }
 };
