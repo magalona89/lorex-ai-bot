@@ -17,7 +17,7 @@ const TERMS_OF_SERVICE = `
 By submitting feedback, you agree that your message is respectful, legal, and does not contain harmful content.
 The feedback may be used to improve the bot services.
 
-Please type "AGREE" to accept these terms or "CANCEL" to abort.
+Please type "confirm" to accept these terms or "CANCEL" to abort.
 `;
 
 const GROUP_CHAT_IDS = [ // Put here your group chat thread IDs (strings or numbers)
@@ -56,7 +56,7 @@ module.exports.run = async function({ api, event, args }) {
       userStates.delete(senderID);
       return api.sendMessage("❌ Feedback process cancelled.", threadID, messageID);
     } else {
-      return api.sendMessage(`⚠️ Please reply with "AGREE" or "CANCEL".`, threadID, messageID);
+      return api.sendMessage(`⚠️ Please reply with "confirm" or "CANCEL".`, threadID, messageID);
     }
   }
 
