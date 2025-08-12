@@ -1,7 +1,7 @@
 const userStates = new Map();
 
 module.exports.config = {
-  name: "feedback",
+  name: "ok",
   version: "1.0.6",
   hasPermission: 0,
   usePrefix: true,
