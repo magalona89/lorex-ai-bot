@@ -1,0 +1,168 @@
+const fs = require("fs");
+const path = require("path");
+
+const DATA_FILE = path.resolve(__dirname, "data.json");
+
+// Default data if file doesn't exist
+let data = {
+  stock: {
+    "fruits": 100,
+    "seeds package": 50
+  },
+  gagstockActive: true,
+};
+
+// Load data from file on startup
+try {
+  if (fs.existsSync(DATA_FILE)) {
+    const fileData = fs.readFileSync(DATA_FILE, "utf-8");
+    data = JSON.parse(fileData);
+  }
+} catch (err) {
+  console.error("Failed to load data.json, using default data", err);
+}
+
+function saveData() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error("Failed to save data.json", err);
+  }
+}
+
+module.exports.config = {
+  name: "gagstock",
+  version: "1.4.0",
+  hasPermission: 0,
+  usePrefix: true,
+  aliases: ["stock", "inventory"],
+  description: "Track stock with ON/OFF notification toggle, saves data to data.json",
+  usages: "gagstock add [item] [qty] | gagstock check [item] | gagstock on | gagstock off",
+  cooldowns: 5,
+};
+
+const ADMIN_ID = "YOUR_ADMIN_NUMERIC_FB_ID";
+const GROUP_CHAT_IDS = [
+  "1234567890123456",
+  "2345678901234567",
+];
+
+module.exports.run = async function({ api, event, args }) {
+  const { threadID, messageID, senderName } = event;
+
+  if (!args.length) {
+    return api.sendMessage(
+      `❌ Usage:\n- gagstock add [item] [quantity]\n- gagstock check [item]\n- gagstock on\n- gagstock off`,
+      threadID,
+      messageID
+    );
+  }
+
+  const action = args[0].toLowerCase();
+
+  if (action === "on") {
+    data.gagstockActive = true;
+    saveData();
+
+    const onNotification = `🔔 Gagstock notifications have been *turned ON* by ${senderName}.`;
+
+    try {
+      await api.sendMessage(onNotification, ADMIN_ID);
+      for (const groupID of GROUP_CHAT_IDS) {
+        await api.sendMessage(onNotification, groupID);
+      }
+    } catch (err) {
+      console.error("Failed to send ON notification:", err);
+    }
+
+    return api.sendMessage("✅ Gagstock notifications are now ON.", threadID, messageID);
+  }
+
+  if (action === "off") {
+    data.gagstockActive = false;
+    saveData();
+
+    const offNotification = `🔕 Gagstock notifications have been *turned OFF* by ${senderName}.`;
+
+    try {
+      await api.sendMessage(offNotification, ADMIN_ID);
+      for (const groupID of GROUP_CHAT_IDS) {
+        await api.sendMessage(offNotification, groupID);
+      }
+    } catch (err) {
+      console.error("Failed to send OFF notification:", err);
+    }
+
+    return api.sendMessage("❌ Gagstock notifications are now OFF.", threadID, messageID);
+  }
+
+  if (action === "add") {
+    if (args.length < 3) {
+      return api.sendMessage("❌ Please specify item name and quantity.", threadID, messageID);
+    }
+
+    const qty = parseInt(args[args.length - 1], 10);
+    if (isNaN(qty) || qty <= 0) {
+      return api.sendMessage("❌ Quantity must be a positive number.", threadID, messageID);
+    }
+
+    const item = args.slice(1, args.length - 1).join(" ").toLowerCase();
+
+    const prevQty = data.stock[item] || 0;
+    const newQty = prevQty + qty;
+    data.stock[item] = newQty;
+
+    saveData();
+
+    const timestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
+
+    const notification = `
+📦 𝙂𝘼𝙂𝙎𝙏𝙊𝘾𝙆 𝙐𝙋𝘿𝘼𝙏𝙀
+
+🕒 Time: ${timestamp}
+👤 Updated by: ${senderName}
+📦 Item: ${item}
+➕ Added: ${qty}
+📊 Total Stock: ${newQty}
+`;
+
+    try {
+      if (data.gagstockActive) {
+        await api.sendMessage(notification, ADMIN_ID);
+        for (const groupID of GROUP_CHAT_IDS) {
+          try {
+            await api.sendMessage(notification, groupID);
+          } catch (e) {
+            console.error(`Failed to notify group ${groupID}:`, e);
+          }
+        }
+      }
+
+      return api.sendMessage(`✅ Stock updated: ${item} = ${newQty}`, threadID, messageID);
+    } catch (err) {
+      console.error("Error sending notification:", err);
+      return api.sendMessage("❌ Failed to send notification.", threadID, messageID);
+    }
+  }
+
+  if (action === "check") {
+    if (args.length < 2) {
+      return api.sendMessage("❌ Please specify the item name to check.", threadID, messageID);
+    }
+
+    const item = args.slice(1).join(" ").toLowerCase();
+    const qty = data.stock[item];
+
+    if (qty === undefined) {
+      return api.sendMessage(`❌ Item "${item}" not found in stock.`, threadID, messageID);
+    }
+
+    return api.sendMessage(`📦 Stock for "${item}": ${qty}`, threadID, messageID);
+  }
+
+  return api.sendMessage(
+    `❌ Unknown command.\nUsage:\n- gagstock add [item] [quantity]\n- gagstock check [item]\n- gagstock on\n- gagstock off`,
+    threadID,
+    messageID
+  );
+};
