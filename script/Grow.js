@@ -2,373 +2,190 @@ const fs = require('fs-extra');
 const path = require('path');
 const moment = require('moment-timezone');
 
-const dataDir = path.join(__dirname, 'gagstocks');
+const dataDir = path.join(__dirname, 'gardens');
 fs.ensureDirSync(dataDir);
 
-// Stock items and gear catalog
-const stockItems = {
-  gagco: { emoji: '📈', price: 100, type: 'stock' },
-  stockx: { emoji: '💹', price: 120, type: 'stock', premium: true },
-  funbiz: { emoji: '🏢', price: 90, type: 'stock' },
-  tokyo: { emoji: '🗼', price: 150, type: 'stock', premium: true },
-  techup: { emoji: '💻', price: 110, type: 'stock' },
-  foodmart: { emoji: '🍔', price: 80, type: 'stock' },
-  greenenergy: { emoji: '🌿', price: 130, type: 'stock', premium: true },
-  booster: { emoji: '⚡', price: 200, type: 'gear' },
-  hat: { emoji: '🎩', price: 180, type: 'cosmetic' }
+const shopItems = {
+  apple: { emoji: "🍎", price: 40, type: "seed" },
+  banana: { emoji: "🍌", price: 30, type: "seed" },
+  chili: { emoji: "🌶️", price: 55, type: "seed" },
+  carrots: { emoji: "🥕", price: 50, type: "seed" },
+  melon: { emoji: "🍈", price: 60, type: "seed" },
+  corn: { emoji: "🌽", price: 45, type: "seed" },
+  honey: { emoji: "🍯", price: 80, type: "seed" },
+  pineapple: { emoji: "🍍", price: 120, premium: true, type: "seed" },
+  coconut: { emoji: "🥥", price: 110, type: "seed" },
+  mango: { emoji: "🥭", price: 100, premium: true, type: "seed" },
+  kiwi: { emoji: "🥝", price: 90, premium: true, type: "seed" },
+  orange: { emoji: "🍊", price: 35, type: "seed" },
+  broccoli: { emoji: "🥦", price: 50, type: "seed" },
+  eggplant: { emoji: "🍆", price: 55, type: "seed" },
+  strawberry: { emoji: "🍓", price: 65, type: "seed" },
+  cherry: { emoji: "🍒", price: 70, type: "seed" },
+  purplecabbage: { emoji: "🥬", price: 80, premium: true, type: "seed" },
+  lemon: { emoji: "🍋", price: 40, type: "seed" },
+  pinktulips: { emoji: "🌷", price: 75, premium: true, type: "seed" },
+  lotus: { emoji: "🌸", price: 85, type: "seed" },
+  megamushroom: { emoji: "🍄", price: 95, premium: true, type: "seed" },
+  succulent: { emoji: "🪴", price: 100, type: "seed" },
+  shovel: { emoji: "🛠️", price: 150, type: "gear" },
+  wateringcan: { emoji: "💧", price: 120, type: "gear" },
+  hat: { emoji: "🎩", price: 200, type: "cosmetic" },
+  glasses: { emoji: "🕶️", price: 180, type: "cosmetic" }
 };
 
-// Land purchase prices
 const landPrices = {
-  1: 150,
-  5: 700,
-  10: 1300
+  1: 100,
+  5: 450,
+  10: 800,
 };
 
-// Growth stages messages
-const growStages = [
-  '📉 Stock is low...',
-  '📈 Stock is improving...',
-  '💹 Stock is growing...',
-  '🚀 Stock is booming!',
-  '🏆 Stock reached peak value!'
-];
-
-// Admins (for possible future use)
-const admins = ['61575940656891'];
-
-// Utility: check admin
-function isAdmin(id) {
-  return admins.includes(id);
-}
-
-// Load user data or create default
 async function loadUserData(userID) {
   const file = path.join(dataDir, `${userID}.json`);
   if (await fs.pathExists(file)) {
     const data = await fs.readJson(file);
-    // Initialize missing fields for safety
     data.inventory ??= {};
     data.gearStock ??= {};
     data.cosmetics ??= {};
-    data.stockPortfolio ??= null;
     data.coins ??= 100;
     data.premium ??= false;
     data.lastClaim ??= 0;
-    data.totalEarned ??= 0;
     data.landPlots ??= { total: 1, used: 0 };
-    data.boostActive ??= false;
-    data.boostExpire ??= 0;
     return data;
   }
-  // Default new user data
   return {
     coins: 100,
     inventory: {},
     gearStock: {},
     cosmetics: {},
-    stockPortfolio: null,
     premium: false,
     lastClaim: 0,
-    totalEarned: 0,
-    landPlots: { total: 1, used: 0 },
-    boostActive: false,
-    boostExpire: 0
+    landPlots: { total: 1, used: 0 }
   };
 }
 
-// Save user data
 async function saveUserData(userID, data) {
   const file = path.join(dataDir, `${userID}.json`);
   await fs.writeJson(file, data);
 }
 
-// Get current time in Philippine timezone formatted string
 function getPhilippineTime() {
-  return moment().tz('Asia/Manila').format('MMMM Do YYYY, h:mm:ss A');
+  return moment().tz("Asia/Manila").format("MMMM Do YYYY, h:mm:ss A");
 }
 
-// Message box formatting
 function boxMessage(content) {
   return `╭─❒\n${content}\n╰────`;
 }
 
-// Check if user can use an item (considering premium)
-function canUse(item, userData) {
-  if (!item) return false;
-  if (item.premium && !userData.premium) return false;
-  return true;
-}
-
-// Auto-grow stocks each command usage
-async function processGrowth(api, threadID, userID, userData) {
-  if (!userData.stockPortfolio) return;
-
-  const now = Date.now();
-  let growthSpeed = 1; // default growth per cycle
-
-  // Booster doubles growth speed
-  if (userData.boostActive && userData.boostExpire > now) {
-    growthSpeed = 2;
-  } else if (userData.boostExpire <= now) {
-    // Booster expired
-    userData.boostActive = false;
-    userData.boostExpire = 0;
-    await saveUserData(userID, userData);
-  }
-
-  userData.stockPortfolio.stage += growthSpeed;
-  if (userData.stockPortfolio.stage >= growStages.length) {
-    userData.stockPortfolio.stage = growStages.length - 1;
-  }
-
-  await saveUserData(userID, userData);
-
-  const stock = userData.stockPortfolio.name;
-  const stageMsg = growStages[userData.stockPortfolio.stage];
-  const emoji = stockItems[stock]?.emoji || '❓';
-
-  // Auto-send update to group chat
-  api.sendMessage(
-    boxMessage(`📢 Update for ${emoji} ${stock}:\n${stageMsg}\n⏰ ${getPhilippineTime()}`),
-    threadID
-  );
-}
-
 module.exports.config = {
-  name: "gagstock2",
-  version: "7.8.9.2",
+  name: "putikgarden",
+  version: "4.1.0",
   hasPermission: 0,
-  description:
-    "Stock tracker with garden-style features: land, growth, boosts, premium, cosmetics.",
-  usages: "gagstock <command> [args]",
+  description: "Garden game with coins, seeds, gear, cosmetics, premium, lands",
+  usages: "putikgarden <command> [args]",
   cooldowns: 3
 };
 
-module.exports.run = async function ({ api, event, args }) {
-  const { threadID, senderID } = event;
+module.exports.run = async function({ api, event, args }) {
+  const { threadID, senderID, messageID } = event;
   const cmd = args[0]?.toLowerCase();
 
-  const userData = await loadUserData(senderID);
+  const garden = await loadUserData(senderID);
 
-  // Process growth each time a command is executed
-  await processGrowth(api, threadID, senderID, userData);
-
-  switch (cmd) {
-    case "claim": {
-      const now = Date.now();
-      if (now - userData.lastClaim < 86400000)
-        return api.sendMessage(
-          boxMessage("⏳ You can only claim once every 24 hours.") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      const claimAmount = 50000;
-      userData.coins += claimAmount;
-      userData.lastClaim = now;
-      userData.totalEarned += claimAmount;
-      await saveUserData(senderID, userData);
-
-      return api.sendMessage(
-        boxMessage(`🎉 You claimed ${claimAmount} coins!`) + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "shop": {
-      let msg = boxMessage("🛒 Stock Market Shop:\n");
-      for (const [name, item] of Object.entries(stockItems)) {
-        if (item.premium && !userData.premium) continue;
-        msg += `${item.emoji} ${name} — 💰 ${item.price}\n`;
-      }
-      msg += "\n🏞️ To buy land plots: gagstock buyland <quantity>";
-      if (!userData.premium) msg += "\n\n💎 Unlock premium stocks with: gagstock premium (cost: 300 coins)";
-      msg += `\n\n⏰ ${getPhilippineTime()}`;
-      return api.sendMessage(msg, threadID);
-    }
-
-    case "buy": {
-      const itemName = args[1]?.toLowerCase();
-      if (!itemName || !stockItems[itemName])
-        return api.sendMessage(
-          boxMessage("❌ Invalid item. Use gagstock shop") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      const item = stockItems[itemName];
-      if (!canUse(item, userData))
-        return api.sendMessage(boxMessage("❌ This is premium-only.") + `\n⏰ ${getPhilippineTime()}`, threadID);
-
-      if (userData.coins < item.price)
-        return api.sendMessage(boxMessage("❌ Not enough coins.") + `\n⏰ ${getPhilippineTime()}`, threadID);
-
-      userData.coins -= item.price;
-      if (item.type === "gear") userData.gearStock[itemName] = (userData.gearStock[itemName] || 0) + 1;
-      else if (item.type === "cosmetic") userData.cosmetics[itemName] = (userData.cosmetics[itemName] || 0) + 1;
-      else userData.inventory[itemName] = (userData.inventory[itemName] || 0) + 1;
-
-      await saveUserData(senderID, userData);
-      return api.sendMessage(
-        boxMessage(`✅ Bought 1 ${item.emoji} ${itemName}`) + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "buyland": {
-      let quantity = parseInt(args[1]);
-      if (!quantity || quantity <= 0)
-        return api.sendMessage(
-          boxMessage("❌ Specify a valid number of lands.\nExample: gagstock buyland 3") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      let price = landPrices[quantity] ?? landPrices[1] * quantity;
-      if (userData.coins < price)
-        return api.sendMessage(
-          boxMessage(`❌ Need ${price} coins to buy ${quantity} land(s).`) + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      userData.coins -= price;
-      userData.landPlots.total += quantity;
-      await saveUserData(senderID, userData);
-
-      return api.sendMessage(
-        boxMessage(`🌿 You bought ${quantity} land(s) for ${price} coins! Total lands: ${userData.landPlots.total}`) +
-          `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "inventory": {
-      let msg = boxMessage(
-        `📦 Inventory:\nCoins: ${userData.coins}\nLands used: ${userData.landPlots.used} / ${userData.landPlots.total}\n\n📈 Stocks:\n`
-      );
-      if (!Object.keys(userData.inventory).length) msg += "None\n";
-      else
-        for (const [k, v] of Object.entries(userData.inventory))
-          msg += `${stockItems[k]?.emoji || "❓"} ${k}: ${v}\n`;
-
-      msg += "\n🛠️ Gear:\n";
-      if (!Object.keys(userData.gearStock).length) msg += "None\n";
-      else
-        for (const [k, v] of Object.entries(userData.gearStock))
-          msg += `${stockItems[k]?.emoji || "❓"} ${k}: ${v}\n`;
-
-      msg += "\n🎨 Cosmetics:\n";
-      if (!Object.keys(userData.cosmetics).length) msg += "None\n";
-      else
-        for (const [k, v] of Object.entries(userData.cosmetics))
-          msg += `${stockItems[k]?.emoji || "❓"} ${k}: ${v}\n`;
-
-      msg += `\n⏰ ${getPhilippineTime()}`;
-      return api.sendMessage(msg, threadID);
-    }
-
-    case "track": {
-      const stock = args[1]?.toLowerCase();
-      if (!stock)
-        return api.sendMessage(
-          boxMessage("❌ Specify stock: gagstock track <stock>") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      if (!userData.inventory[stock] || userData.inventory[stock] <= 0)
-        return api.sendMessage(
-          boxMessage(`❌ You don't have any ${stock}`) + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      if (userData.landPlots.used >= userData.landPlots.total)
-        return api.sendMessage(
-          boxMessage("❌ No free land plots. Buy more with gagstock buyland <quantity>") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      const item = stockItems[stock];
-      if (!item || !canUse(item, userData) || item.type !== "stock")
-        return api.sendMessage(
-          boxMessage("❌ Invalid or premium stock.") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      // Plant the stock (start tracking)
-      userData.inventory[stock]--;
-      userData.stockPortfolio = { name: stock, stage: 0 };
-      userData.landPlots.used++;
-      await saveUserData(senderID, userData);
-
-      return api.sendMessage(
-        boxMessage(`📈 Started tracking stock ${item.emoji} ${stock}`) + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "boost": {
-      if (!userData.gearStock["booster"] || userData.gearStock["booster"] <= 0)
-        return api.sendMessage(
-          boxMessage("❌ You don't have any ⚡ booster to activate.") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      if (userData.boostActive && userData.boostExpire > Date.now())
-        return api.sendMessage(boxMessage("⚡ Booster already active."), threadID);
-
-      userData.gearStock["booster"]--;
-      userData.boostActive = true;
-      userData.boostExpire = Date.now() + 1000 * 60 * 30; // 30 minutes booster
-      await saveUserData(senderID, userData);
-
-      return api.sendMessage(
-        boxMessage("⚡ Booster activated for 30 minutes!") + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "status": {
-      if (!userData.stockPortfolio)
-        return api.sendMessage(
-          boxMessage("❌ You're not tracking any stock right now.") + `\n⏰ ${getPhilippineTime()}`,
-          threadID
-        );
-
-      const stock = userData.stockPortfolio.name;
-      const stage = userData.stockPortfolio.stage;
-      const emoji = stockItems[stock]?.emoji || "❓";
-      const stageMsg = growStages[stage];
-
-      let boostMsg = "";
-      if (userData.boostActive && userData.boostExpire > Date.now()) {
-        const remaining = Math.floor((userData.boostExpire - Date.now()) / 60000);
-        boostMsg = `\n⚡ Booster active for ${remaining} more minutes`;
-      } else boostMsg = "\n⚡ Booster not active";
-
-      return api.sendMessage(
-        boxMessage(
-          `📊 Tracking: ${emoji} ${stock}\nStage: ${stage} - ${stageMsg}${boostMsg}\nLands used: ${userData.landPlots.used} / ${userData.landPlots.total}`
-        ) + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
-    }
-
-    case "premium": {
-      if (userData.premium) return api.sendMessage(boxMessage("💎 You already have premium."), threadID);
-
-      const cost = 300;
-      if (userData.coins < cost)
-        return api.sendMessage(boxMessage(`❌ Need ${cost} coins for premium.`), threadID);
-
-      userData.coins -= cost;
-      userData.premium = true;
-      await saveUserData(senderID, userData);
-
-      return api.sendMessage(boxMessage("💎 Premium activated! You can now buy premium stocks."), threadID);
-    }
-
-    default:
-      return api.sendMessage(
-        boxMessage("❌ Unknown command. Use gagstock shop to see commands.") + `\n⏰ ${getPhilippineTime()}`,
-        threadID
-      );
+  function canUse(item) {
+    if (!item) return false;
+    if (item.premium && !garden.premium) return false;
+    return true;
   }
+
+  // CLAIM DAILY COINS
+  if (cmd === "claim") {
+    const now = Date.now();
+    if (now - garden.lastClaim < 86400000) {
+      return api.sendMessage(boxMessage("⏳ You can only claim once every 24 hours.") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+    }
+    garden.coins += 60000;
+    garden.lastClaim = now;
+    await saveUserData(senderID, garden);
+    return api.sendMessage(boxMessage("🎉 You claimed 60,000 coins!") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+  }
+
+  // SHOW SHOP
+  if (cmd === "shop") {
+    let msg = boxMessage("🛒 Garden Shop Items:\n");
+    for (const [name, item] of Object.entries(shopItems)) {
+      if (item.premium && !garden.premium) continue;
+      msg += `${item.emoji} ${name} — 💰 ${item.price}\n`;
+    }
+    msg += "\n🌱 To buy land plots: putikgarden buyland <quantity>";
+    if (!garden.premium) msg += "\n\n💎 Unlock premium seeds with: putikgarden premium (cost: 200 coins)";
+    msg += `\n\n⏰ Current Time: ${getPhilippineTime()}`;
+    return api.sendMessage(msg, threadID, messageID);
+  }
+
+  // BUY ITEM
+  if (cmd === "buy") {
+    const itemName = args[1]?.toLowerCase();
+    if (!itemName || !shopItems[itemName]) {
+      return api.sendMessage(boxMessage("❌ Invalid item. Use putikgarden shop") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+    }
+    const item = shopItems[itemName];
+    if (!canUse(item)) {
+      return api.sendMessage(boxMessage("❌ This is premium-only.") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+    }
+    if (garden.coins < item.price) {
+      return api.sendMessage(boxMessage("❌ Not enough coins.") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+    }
+
+    garden.coins -= item.price;
+    if (item.type === "gear") garden.gearStock[itemName] = (garden.gearStock[itemName] || 0) + 1;
+    else if (item.type === "cosmetic") garden.cosmetics[itemName] = (garden.cosmetics[itemName] || 0) + 1;
+    else garden.inventory[itemName] = (garden.inventory[itemName] || 0) + 1;
+
+    await saveUserData(senderID, garden);
+    return api.sendMessage(boxMessage(`✅ Bought 1 ${item.emoji} ${itemName}`) + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+  }
+
+  // BUY LAND
+  if (cmd === "buyland") {
+    if (args.length < 2) return api.sendMessage(boxMessage("❌ Specify land quantity: putikgarden buyland <quantity>"), threadID, messageID);
+    const qty = parseInt(args[1], 10);
+    if (isNaN(qty) || qty <= 0) return api.sendMessage(boxMessage("❌ Invalid quantity."), threadID, messageID);
+
+    let totalPrice = 0;
+    if (landPrices[qty]) {
+      totalPrice = landPrices[qty];
+    } else {
+      totalPrice = qty * 100; // fallback price per land
+    }
+
+    if (garden.coins < totalPrice) {
+      return api.sendMessage(boxMessage(`❌ You need ${totalPrice} coins to buy ${qty} land plots.`), threadID, messageID);
+    }
+
+    garden.coins -= totalPrice;
+    garden.landPlots.total += qty;
+
+    await saveUserData(senderID, garden);
+    return api.sendMessage(boxMessage(`🌱 You bought ${qty} land plots for ${totalPrice} coins.\nTotal Land: ${garden.landPlots.total}`) + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+  }
+
+  // PREMIUM PURCHASE
+  if (cmd === "premium") {
+    if (garden.premium) return api.sendMessage(boxMessage("✅ You already have premium."), threadID, messageID);
+    if (garden.coins < 200) return api.sendMessage(boxMessage("❌ You need 200 coins to unlock premium."), threadID, messageID);
+
+    garden.coins -= 200;
+    garden.premium = true;
+
+    await saveUserData(senderID, garden);
+    return api.sendMessage(boxMessage("🎉 Premium unlocked! You can now buy premium seeds.") + `\n⏰ Current Time: ${getPhilippineTime()}`, threadID, messageID);
+  }
+
+  // Default unknown command response
+  return api.sendMessage(
+    boxMessage("❌ Unknown command.\nUsage:\n- putikgarden claim\n- putikgarden shop\n- putikgarden buy <item>\n- putikgarden buyland <qty>\n- putikgarden premium"),
+    threadID,
+    messageID
+  );
 };
