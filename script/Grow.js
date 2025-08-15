@@ -144,13 +144,15 @@ module.exports.run = async function({ api, event, args }) {
     if (garden.coins < item.price) return api.sendMessage("❌ Not enough coins.", threadID);
 
     garden.coins -= item.price;
-    if (["shovel", "wateringcan", "hat", "glasses"].includes(itemName)) {
+
+    if (["shovel", "wateringcan"].includes(itemName)) {
       garden.gearStock[itemName] = (garden.gearStock[itemName] || 0) + 1;
     } else if (["hat", "glasses"].includes(itemName)) {
       garden.cosmetics[itemName] = (garden.cosmetics[itemName] || 0) + 1;
     } else {
       garden.inventory[itemName] = (garden.inventory[itemName] || 0) + 1;
     }
+
     await saveUserData(senderID, garden);
     return api.sendMessage(`✅ Bought 1 ${item.emoji} ${itemName}`, threadID);
   }
@@ -264,8 +266,31 @@ module.exports.run = async function({ api, event, args }) {
       return api.sendMessage(`✅ Given all seeds x3 to user ${targetID}`, threadID);
     }
 
-    // givegear: Give gear item to user or self
+    // givegear: Give gear or cosmetic item to user or self
     if (cmd === "givegear") {
-      const gearName = args[1];
+      const gearName = args[1]?.toLowerCase();
       const targetID = args[2] || senderID;
-      if (!gearName || !shopItems[gearName] || !["shovel", "wateringcan", "hat",
+
+      if (!gearName || !shopItems[gearName]) {
+        return api.sendMessage("❌ Invalid gear item.", threadID);
+      }
+      if (!["shovel", "wateringcan", "hat", "glasses"].includes(gearName)) {
+        return api.sendMessage("❌ This is not a gear or cosmetic item.", threadID);
+      }
+
+      const targetData = await loadUserData(targetID);
+
+      if (["shovel", "wateringcan"].includes(gearName)) {
+        targetData.gearStock[gearName] = (targetData.gearStock[gearName] || 0) + 1;
+      } else if (["hat", "glasses"].includes(gearName)) {
+        targetData.cosmetics[gearName] = (targetData.cosmetics[gearName] || 0) + 1;
+      }
+
+      await saveUserData(targetID, targetData);
+      return api.sendMessage(`✅ Given 1 ${shopItems[gearName].emoji} ${gearName} to user ${targetID}`, threadID);
+    }
+  }
+
+  // Unknown command fallback
+  return api.sendMessage("❌ Unknown command. Use putikgarden shop, buy, plant, grow, harvest, inventory, claim, premium.", threadID);
+};
