@@ -13,7 +13,7 @@ function convertToBold(text) {
 }
 
 const responseOpeners = [
-  "𝗚𝗽𝘁-𝟰𝗼"
+  "𝙂𝙋𝙏 3.5"
 ];
 
 module.exports.config = {
@@ -73,7 +73,8 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   // === GPT-4o TEXT MODE ===
-  if (!input) return api.sendMessage("🌟 Greetings! I am 𝗠𝗲𝘀𝘀𝗮𝗻𝗱𝗿𝗮 , your gateway to GPT-4 intelligence. I am here to assist you", threadID, messageID);
+  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-3.5 technology. I'm here to help you with a variety of tasks, including:
+    , threadID, messageID);
 
   const tempMsg = await sendTemp(api, threadID, "🔄Searching....");
 
