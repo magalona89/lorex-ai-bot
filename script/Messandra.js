@@ -61,22 +61,35 @@ module.exports.run = async function({ api, event, args }) {
       });
 
       if (data?.reply) {
-        const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
-        return api.editMessage(`${opener}\n\n${data.reply}`, tempMsg.messageID, threadID);
+        api.getUserInfo(uid, (err, ret) => {
+          if (err) return api.editMessage("❌ Error fetching user info.", tempMsg.messageID, threadID);
+          const userName = ret[uid]?.name || "User";
+          const content = `👤 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻 𝗳𝗿𝗼𝗺: ${userName}\n\n${data.reply}\n\n𝙋𝙊𝙒𝙀𝙍𝙀𝘿 𝘽𝙔 𝙂𝙋𝙏 3.5`;
+          const boxed = `╔════════════════════════════════════╗\n` +
+                        content.split('\n').map(line => `║ ${line}`).join('\n') + '\n' +
+                        `╚════════════════════════════════════╝`;
+          return api.editMessage(boxed, tempMsg.messageID, threadID);
+        });
+      } else {
+        return api.editMessage("⚠️ Unexpected response from Vision API.", tempMsg.messageID, threadID);
       }
-
-      return api.editMessage("⚠️ Unexpected response from Vision API.", tempMsg.messageID, threadID);
     } catch (err) {
       console.error(err);
       return api.editMessage("❌ Error analyzing image.", tempMsg.messageID, threadID);
     }
   }
 
-  // === GPT-4o TEXT MODE ===
-  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-3.5 technology. I'm here to help you with a variety of tasks, including:
-    , threadID, messageID);
+  if (!input) return api.sendMessage(
+    "🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-3.5 technology. I'm here to help you with a variety of tasks, including:\n\n" +
+    "• Answering questions\n" +
+    "• Providing explanations\n" +
+    "• Image analysis (reply to a photo with a prompt)\n" +
+    "• And more...\n\n" +
+    "Just type your prompt to get started!",
+    threadID, messageID
+  );
 
-  const tempMsg = await sendTemp(api, threadID, "🔄Searching....");
+  const tempMsg = await sendTemp(api, threadID, "🔄 Searching...");
 
   try {
     const { data } = await axios.get('https://daikyu-api.up.railway.app/api/o3-mini', {
@@ -96,8 +109,15 @@ module.exports.run = async function({ api, event, args }) {
       .replace(/###\s*/g, '')
       .replace(/\n{3,}/g, '\n\n');
 
-    const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
-    return api.editMessage(`${opener}\n\n${formatted}`, tempMsg.messageID, threadID);
+    api.getUserInfo(uid, (err, ret) => {
+      if (err) return api.editMessage("❌ Error fetching user info.", tempMsg.messageID, threadID);
+      const userName = ret[uid]?.name || "User";
+      const content = `👤 𝗤𝘂𝗲𝘀𝘁𝗶𝗼𝗻 𝗳𝗿𝗼𝗺: ${userName}\n\n${formatted}\n\n𝙋𝙊𝙒𝙀𝙍𝙀𝘿 𝘽𝙔 𝙂𝙋𝙏 3.5`;
+      const boxed = `╔════════════════════════════════════╗\n` +
+                    content.split('\n').map(line => `║ ${line}`).join('\n') + '\n' +
+                    `╚════════════════════════════════════╝`;
+      return api.editMessage(boxed, tempMsg.messageID, threadID);
+    });
 
   } catch (err) {
     console.error(err);
