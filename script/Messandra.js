@@ -73,15 +73,15 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   // === GPT-4o TEXT MODE ===
-  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-4o technology. I'm here to help you with a variety of tasks, including:
+  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-3.5 technology. I'm here to help you with a variety of tasks, including:
     , threadID, messageID);
 
   const tempMsg = await sendTemp(api, threadID, "🔄Searching....");
 
   try {
-    const { data } = await axios.get('https://daikyu-api.up.railway.app/api/gpt-4o', {
+    const { data } = await axios.get('https://daikyu-api.up.railway.app/api/o3-mini', {
       params: {
-        query: input,
+        prompt: input,
         uid: uid
       }
     });
