@@ -28,10 +28,30 @@ module.exports.config = {
   cooldowns: 0
 };
 
+const bannedUsers = {}; 
+const BAN_DURATION = 4 * 60 * 60 * 1000; // 4 hours in ms
+const MAX_PROMPT_LENGTH = 200;
+const MAX_ANSWERS = 3;
+
+const userRequestCounts = {}; 
+// Format: { userID: { count: number, lastReset: timestamp } }
+
 async function sendTemp(api, threadID, message) {
   return new Promise(resolve => {
     api.sendMessage(message, threadID, (err, info) => resolve(info));
   });
+}
+
+function resetUserCountIfNeeded(uid) {
+  const now = Date.now();
+  if (!userRequestCounts[uid]) {
+    userRequestCounts[uid] = { count: 0, lastReset: now };
+    return;
+  }
+  // Reset count if lastReset more than BAN_DURATION ago
+  if (now - userRequestCounts[uid].lastReset > BAN_DURATION) {
+    userRequestCounts[uid] = { count: 0, lastReset: now };
+  }
 }
 
 module.exports.run = async function({ api, event, args }) {
@@ -39,6 +59,33 @@ module.exports.run = async function({ api, event, args }) {
   const uid = event.senderID;
   const threadID = event.threadID;
   const messageID = event.messageID;
+
+  const now = Date.now();
+
+  // Check if banned
+  if (bannedUsers[uid]) {
+    if (now < bannedUsers[uid]) {
+      const remaining = Math.ceil((bannedUsers[uid] - now) / (60 * 1000)); // minutes left
+      return api.sendMessage(`🚫 You are temporarily banned for exceeding the allowed number of requests. Please wait ${remaining} minute(s) before trying again.`, threadID, messageID);
+    } else {
+      delete bannedUsers[uid]; // Ban expired
+      userRequestCounts[uid] = { count: 0, lastReset: now }; // Reset count after ban
+    }
+  }
+
+  resetUserCountIfNeeded(uid);
+
+  // Check prompt length
+  if (input.length > MAX_PROMPT_LENGTH) {
+    bannedUsers[uid] = now + BAN_DURATION;
+    return api.sendMessage(`❌ Your prompt is too long! You are now banned for 4 hours. Please limit your input to ${MAX_PROMPT_LENGTH} characters.`, threadID, messageID);
+  }
+
+  // Check answer limit
+  if (userRequestCounts[uid].count >= MAX_ANSWERS) {
+    bannedUsers[uid] = now + BAN_DURATION;
+    return api.sendMessage(`🚫 You have reached the maximum number of ${MAX_ANSWERS} requests. You are now banned for 4 hours. Please wait before trying again.`, threadID, messageID);
+  }
 
   const isPhotoReply = event.type === "message_reply"
     && Array.isArray(event.messageReply?.attachments)
@@ -48,6 +95,9 @@ module.exports.run = async function({ api, event, args }) {
     const photoUrl = event.messageReply.attachments?.[0]?.url;
     if (!photoUrl) return api.sendMessage("❌ Could not get image URL.", threadID, messageID);
     if (!input) return api.sendMessage("📸 Please provide a prompt along with the image.", threadID, messageID);
+
+    // Increase count for each request
+    userRequestCounts[uid].count++;
 
     const tempMsg = await sendTemp(api, threadID, "🔍 Analyzing image...");
 
@@ -72,9 +122,18 @@ module.exports.run = async function({ api, event, args }) {
     }
   }
 
-  // === GPT-4o TEXT MODE ===
-  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-4o technology. I'm here to help you with a variety of tasks, including:
-    , threadID, messageID);
+  if (!input) {
+    return api.sendMessage(`🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-4o technology. I'm here to help you with a variety of tasks, including:
+
+- Answering questions
+- Analyzing images (reply with an image + prompt)
+- Helping with code, writing, ideas, and more
+
+Send a prompt to get started!`, threadID, messageID);
+  }
+
+  // Increase count for each request
+  userRequestCounts[uid].count++;
 
   const tempMsg = await sendTemp(api, threadID, "🔄Searching....");
 
