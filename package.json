@@ -30,6 +30,7 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^3.2.6",
     "npmlog": "^7.0.1",
+    "moment": "^2.29.4",
     "pastebin-api": "^7.0.0",
     "request": "^2.53.0",
     "websocket-stream": "^5.5.0",
