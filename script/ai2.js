@@ -16,10 +16,11 @@ function convertToBold(text) {
   return text.split('').map(char => boldMap[char] || char).join('');
 }
 
-// Get current Philippine date and time
+// Get current Philippine date and time in prettier format
 function getPhilippineDateTime() {
-  const options = {
+  const now = new Date().toLocaleString('en-PH', {
     timeZone: 'Asia/Manila',
+    weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -27,21 +28,20 @@ function getPhilippineDateTime() {
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
-  };
-
-  return new Intl.DateTimeFormat('en-PH', options).format(new Date());
+  });
+  return now.replace(',', ' •');
 }
 
 module.exports.config = {
-  name: 'ai2',
+  name: 'messandra',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['deepseek', 'ds'],
   description: "Ask Deepseek V3 AI by Kaizenji.",
-  usages: "ai2 [prompt]",
+  usages: "messandra [prompt]",
   credits: 'Kaizenji',
-  cooldowns: 3,
+  cooldowns: 1,
   dependencies: {
     "axios": ""
   }
@@ -49,14 +49,9 @@ module.exports.config = {
 
 module.exports.run = async function({ api, event, args }) {
   const input = args.join(' ');
-  const uid = event.senderID;
 
   if (!input) {
-    return api.sendMessage(
-      "❌ Please provide a prompt",
-      event.threadID,
-      event.messageID
-    );
+    return api.sendMessage("❌ Please provide a prompt.", event.threadID, event.messageID);
   }
 
   api.sendMessage("🔄 Thinking...", event.threadID, event.messageID);
@@ -70,7 +65,7 @@ module.exports.run = async function({ api, event, args }) {
     });
 
     if (!data || !data.response) {
-      return api.sendMessage("No response from Deepseek V3. Please try again.", event.threadID, event.messageID);
+      return api.sendMessage("⚠️ No response from Deepseek V3. Please try again later.", event.threadID, event.messageID);
     }
 
     const formattedResponse = data.response
@@ -80,12 +75,13 @@ module.exports.run = async function({ api, event, args }) {
       .replace(/\n{3,}/g, '\n\n');
 
     const dateTime = getPhilippineDateTime();
-    const finalMessage = `🕒 ${dateTime}\n\n${formattedResponse}`;
+
+    const finalMessage = `🧠 𝗔𝗜 𝗥𝗘𝗦𝗣𝗢𝗡𝗦𝗘\n━━━━━━━━━━━━━━\n🕒 ${dateTime}\n\n${formattedResponse}`;
 
     return api.sendMessage(finalMessage, event.threadID, event.messageID);
 
   } catch (error) {
     console.error("⛔ Error in Deepseek V3:", error.message || error);
-    return api.sendMessage("⛔ An error occurred while processing your request. Please try again.", event.threadID, event.messageID);
+    return api.sendMessage("⛔ An error occurred while processing your request. Please try again later.", event.threadID, event.messageID);
   }
 };
