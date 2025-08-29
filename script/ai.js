@@ -1,96 +1,106 @@
 const axios = require('axios');
-const moment = require('moment-timezone');
 
 function convertToBold(text) {
   const boldMap = {
-    'a': '𝗮', 'b': '𝗯', 'c': '𝗰', 'd': '𝗱', 'e': '𝗲', 'f': '𝗳', 'g': '𝗴',
-    'h': '𝗵', 'i': '𝗶', 'j': '𝗷', 'k': '𝗸', 'l': '𝗹', 'm': '𝗺', 'n': '𝗻',
-    'o': '𝗼', 'p': '𝗽', 'q': '𝗾', 'r': '𝗿', 's': '𝘀', 't': '𝘁', 'u': '𝘂',
-    'v': '𝘃', 'w': '𝘄', 'x': '𝘅', 'y': '𝘆', 'z': '𝘇',
-    'A': '𝗔', 'B': '𝗕', 'C': '𝗖', 'D': '𝗗', 'E': '𝗘', 'F': '𝗙', 'G': '𝗚',
-    'H': '𝗛', 'I': '𝗜', 'J': '𝗝', 'K': '𝗞', 'L': '𝗟', 'M': '𝗠', 'N': '𝗡',
-    'O': '𝗢', 'P': '𝗣', 'Q': '𝗤', 'R': '𝗥', 'S': '𝗦', 'T': '𝗧', 'U': '𝗨',
-    'V': '𝗩', 'W': '𝗪', 'X': '𝗫', 'Y': '𝗬', 'Z': '𝗭',
+    'a': '𝗮','b': '𝗯','c': '𝗰','d': '𝗱','e': '𝗲','f': '𝗳','g': '𝗴','h': '𝗵','i': '𝗶','j': '𝗷',
+    'k': '𝗸','l': '𝗹','m': '𝗺','n': '𝗻','o': '𝗼','p': '𝗽','q': '𝗾','r': '𝗿','s': '𝘀','t': '𝘁',
+    'u': '𝘂','v': '𝘃','w': '𝘄','x': '𝘅','y': '𝘆','z': '𝘇',
+    'A': '𝗔','B': '𝗕','C': '𝗖','D': '𝗗','E': '𝗘','F': '𝗙','G': '𝗚','H': '𝗛','I': '𝗜','J': '𝗝',
+    'K': '𝗞','L': '𝗟','M': '𝗠','N': '𝗡','O': '𝗢','P': '𝗣','Q': '𝗤','R': '𝗥','S': '𝗦','T': '𝗧',
+    'U': '𝗨','V': '𝗩','W': '𝗪','X': '𝗫','Y': '𝗬','Z': '𝗭',
   };
-
   return text.split('').map(char => boldMap[char] || char).join('');
+}
+
+const responseOpeners = [
+  "𝙂𝙋𝙏 3.5"
+];
+
+module.exports.config = {
+  name: 'cassandra',
+  version: '1.1.7',
+  hasPermission: 0,
+  usePrefix: false,
+  aliases: ['gpt', 'Cassandra'],
+  description: "An AI command powered by Gemini Vision",
+  usages: "ai [prompt]",
+  credits: 'LorexAi',
+  cooldowns: 0
+};
+
+async function sendTemp(api, threadID, message) {
+  return new Promise(resolve => {
+    api.sendMessage(message, threadID, (err, info) => resolve(info));
+  });
 }
 
 module.exports.run = async function({ api, event, args }) {
   const input = args.join(' ');
   const uid = event.senderID;
+  const threadID = event.threadID;
+  const messageID = event.messageID;
 
-  // Get current time in PH timezone
-  const phTime = moment().tz('Asia/Manila').format('MMMM D, YYYY (dddd) — h:mm A');
+  const isPhotoReply = event.type === "message_reply"
+    && Array.isArray(event.messageReply?.attachments)
+    && event.messageReply.attachments.some(att => att.type === "photo");
 
-  const isPhoto = event.type === "message_reply" &&
-                  event.messageReply?.attachments &&
-                  event.messageReply.attachments[0]?.type === "photo";
+  if (isPhotoReply) {
+    const photoUrl = event.messageReply.attachments?.[0]?.url;
+    if (!photoUrl) return api.sendMessage("❌ Could not get image URL.", threadID, messageID);
+    if (!input) return api.sendMessage("📸 Please provide a prompt along with the image.", threadID, messageID);
 
-  if (isPhoto) {
-    const photoUrl = event.messageReply.attachments[0].url;
-
-    if (!input) {
-      return api.sendMessage(
-        `📸 𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝗽𝗿𝗼𝗺𝗽𝘁 𝗸𝗮𝘀𝗮𝗯𝗮𝘆 𝗻𝗴 𝗹𝗮𝗿𝗮𝘄𝗮𝗻.\nExample: "ai describe this image"`,
-        event.threadID,
-        event.messageID
-      );
-    }
-
-    api.sendMessage(`🧠 GPT-5 Vision is analyzing the image...\n⏰ **PH Time:** ${phTime}`, event.threadID, event.messageID);
+    const tempMsg = await sendTemp(api, threadID, "🔍 Analyzing image...");
 
     try {
-      const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/gemini-vision', {
+      const { data } = await axios.get('https://daikyu-api.up.railway.app/api/gemini-pro', {
         params: {
-          q: input,
+          ask: input,
           uid: uid,
-          imageUrl: photoUrl,
-          apikey: 'acb7e0e8-bbc3-4697-bf64-1f3c6231dee7'
+          imageURL: photoUrl
         }
       });
 
-      if (data?.response) {
-        return api.sendMessage(`📤 𝗥𝗲𝘀𝘂𝗹𝘁:\n\n${data.response}`, event.threadID, event.messageID);
-      } else {
-        return api.sendMessage("⚠️ Unexpected response format from the image analysis API.", event.threadID, event.messageID);
+      if (data?.reply) {
+        const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
+        return api.editMessage(`${opener}\n\n${data.reply}`, tempMsg.messageID, threadID);
       }
-    } catch (error) {
-      console.error("Error processing image analysis request:", error.message || error);
-      return api.sendMessage("❌ An error occurred while processing the image. Please try again.", event.threadID, event.messageID);
+
+      return api.editMessage("⚠️ Unexpected response from Vision API.", tempMsg.messageID, threadID);
+    } catch (err) {
+      console.error(err);
+      return api.editMessage("❌ Error analyzing image.", tempMsg.messageID, threadID);
     }
   }
 
-  if (!input) {
-    return api.sendMessage("❌ 𝗣𝗮𝗸𝗶 𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝗽𝗿𝗼𝗺𝗽𝘁. Example: ai What is quantum physics?", event.threadID, event.messageID);
-  }
+  // === GPT-4o TEXT MODE ===
+  if (!input) return api.sendMessage("🔷Hello! I am MESSANDRA, an AI assistant powered by OpenAI's GPT-4o technology. I'm here to help you with a variety of tasks, including:
+    , threadID, messageID);
 
-  api.sendMessage(`🤖 GPT-5 is thinking...\n⏰ **PH Time:** ${phTime}`, event.threadID, event.messageID);
+  const tempMsg = await sendTemp(api, threadID, "🔄Searching....");
 
   try {
-    const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/gemini-flash-2.0', {
+    const { data } = await axios.get('https://daikyu-api.up.railway.app/api/gpt-4o', {
       params: {
-        q: input,
-        uid: uid,
-        apikey: 'acb7e0e8-bbc3-4697-bf64-1f3c6231dee7'
+        query: input,
+        uid: uid
       }
     });
 
     if (!data?.response) {
-      return api.sendMessage("😕 I didn’t quite catch that. Could you try again?", event.threadID, event.messageID);
+      return api.editMessage("❌ No response received. Try again.", tempMsg.messageID, threadID);
     }
 
-    const formattedResponse = data.response
-      .replace(/\*\*(.*?)\*\*/g, (_, text) => convertToBold(text))
-      .replace(/##(.*?)##/g, (_, text) => convertToBold(text))
-      .replace(/^###\s*/gm, '')
+    const formatted = data.response
+      .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
+      .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
+      .replace(/###\s*/g, '')
       .replace(/\n{3,}/g, '\n\n');
 
-    const fullMessage = `✅ 𝗔𝗜 𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲\n⏰ **Date & Time:** ${phTime}\n\n${formattedResponse}`;
+    const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
+    return api.editMessage(`${opener}\n\n${formatted}`, tempMsg.messageID, threadID);
 
-    return api.sendMessage(fullMessage, event.threadID, event.messageID);
-  } catch (error) {
-    console.error("⛔ Error:", error.message || error);
-    return api.sendMessage("⛔ Error processing your request. Please try again.", event.threadID, event.messageID);
+  } catch (err) {
+    console.error(err);
+    return api.editMessage("⚠️ Something went wrong. Try again later.", tempMsg.messageID, threadID);
   }
 };
