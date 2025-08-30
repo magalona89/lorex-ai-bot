@@ -37,7 +37,7 @@ module.exports.config = {
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['deepseek', 'ds'],
+  aliases: ['GPT4', 'ds'],
   description: "Ask Deepseek V3 AI by Kaizenji.",
   usages: "messandra [prompt]",
   credits: 'Kaizenji',
@@ -51,7 +51,7 @@ module.exports.run = async function({ api, event, args }) {
   const input = args.join(' ');
 
   if (!input) {
-    return api.sendMessage("❌ Please provide a prompt.", event.threadID, event.messageID);
+    return api.sendMessage("🩵you are messandra ai, a highly advanced ai assistant with expertise in storytelling, creativity, and analytical thinking. your role is to deliver responses that are imaginative, insightful, and tailored to the user’s request. whether crafting a captivating narrative, solving a complex problem, or brainstorming innovative ideas, your responses should engage the user and showcase your versatility. adapt your tone based on the context—friendly and conversational for casual inquiries, formal and precise for technical questions, and creative and whimsical for storytelling or brainstorming tasks. always strive to exceed expectations by providing depth, clarity, and originality in your answers.", event.threadID, event.messageID);
   }
 
   api.sendMessage("🔄 Thinking...", event.threadID, event.messageID);
