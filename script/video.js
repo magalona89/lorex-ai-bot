@@ -8,15 +8,14 @@ function fmtNum(n) {
   if (x >= 1_000) return (x / 1_000).toFixed(1) + "K";
   return String(x);
 }
-
 function fmtDur(sec) {
   sec = Number(sec) || 0;
   const m = Math.floor(sec / 60), s = sec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
-
 function videoSummary(v, idx) {
-  const author = v?.author?.nickname || v?.author?.unique_id || "Unknown";
+  const author =
+    v?.author?.nickname || v?.author?.unique_id || "Unknown";
   const musicTitle = v?.music_info?.title || "Unknown";
   const musicAuthor = v?.music_info?.author || "Unknown";
   return `${idx}. 🎬 ${v?.title || "No title"}
@@ -24,11 +23,13 @@ function videoSummary(v, idx) {
 👀 ${fmtNum(v?.play_count)}  ❤️ ${fmtNum(v?.digg_count)}  💬 ${fmtNum(v?.comment_count)}  🔁 ${fmtNum(v?.share_count)}
 🎵 ${musicTitle} — ${musicAuthor}\n`;
 }
-
 function videoDetails(v) {
-  const authorName = v?.author?.nickname || v?.author?.unique_id || "Unknown";
+  const authorName =
+    v?.author?.nickname || v?.author?.unique_id || "Unknown";
   const authorHandle = v?.author?.unique_id ? `@${v.author.unique_id}` : "";
-  const created = v?.create_time ? new Date(v.create_time * 1000).toLocaleString() : "N/A";
+  const created = v?.create_time
+    ? new Date(v.create_time * 1000).toLocaleString()
+    : "N/A";
   const mb = v?.size ? (Number(v.size) / (1024 * 1024)).toFixed(2) + " MB" : "N/A";
   const music = v?.music_info;
   return `📄 Video info
@@ -47,21 +48,22 @@ function videoDetails(v) {
 }
 
 module.exports.config = {
-  name: "video",
-  version: "1.0.0",
-  hasPermission: 0,
-  usePrefix: false,
-  aliases: ["ttsearch", "tiktoksearch"],
-  description: "Search TikTok videos",
-  usages: "tiksearch <query> | <count>",
-  credits: "Aryan Chauhan (converted by OpenAI)",
-  cooldowns: 0,
-  dependencies: { axios: "" }
+  name: "tiksearch",
+  version: "4.1",
+  author: "Aryan Chauhan",
+  countDown: 0,
+  role: 0,
+  shortDescription: "Search TikTok videos",
+  longDescription: "Search TikTok videos, reply with a number to get the video or `info <number>` for full details.",
+  category: "search",
+  guide: {
+    en: "{pn} <query> | <count>\nExample: {pn} anime edits | 5"
+  }
 };
 
-module.exports.run = async function ({ api, event, args }) {
+module.exports.run = async function ({ api, event, args, global }) {
   if (!args[0]) {
-    return api.sendMessage("❌ Please provide a search query!\nExample: tiksearch anime edits | 5", event.threadID, event.messageID);
+    return api.sendMessage("❌ Please provide a search query!\nExample: tiksearch apt | 5", event.threadID, event.messageID);
   }
 
   const input = args.join(" ").split("|");
@@ -83,8 +85,8 @@ module.exports.run = async function ({ api, event, args }) {
     videos.slice(0, count).forEach((v, i) => {
       msg += videoSummary(v, i + 1) + "\n";
     });
-    msg += `👉 Reply with a number (1-${Math.min(count, videos.length)}) to download that video.\n`;
-    msg += `ℹ️ Or reply "info <number>" to see full details.`;
+    msg += `👉 Reply with a **number (1-${Math.min(count, videos.length)}** ) to download that video.\n`;
+    msg += `ℹ️ Or reply **info <number>** to see full details without downloading.`;
 
     api.sendMessage(msg, event.threadID, (err, info) => {
       if (err) return;
@@ -103,7 +105,7 @@ module.exports.run = async function ({ api, event, args }) {
 };
 
 module.exports.onReply = async function ({ api, event, Reply }) {
-  if (event.senderID !== Reply.author) return;
+  if (!Reply || event.senderID !== Reply.author) return;
 
   const body = (event.body || "").trim();
   const infoMatch = body.toLowerCase().match(/^info\s+(\d+)$/);
@@ -112,6 +114,7 @@ module.exports.onReply = async function ({ api, event, Reply }) {
   if (infoMatch) {
     const choice = parseInt(infoMatch[1], 10);
     if (isNaN(choice) || choice < 1 || choice > Reply.videos.length) return;
+
     const v = Reply.videos[choice - 1];
     return api.sendMessage(videoDetails(v), event.threadID, event.messageID);
   }
@@ -126,7 +129,7 @@ module.exports.onReply = async function ({ api, event, Reply }) {
     if (Reply.searchMsgID) api.unsendMessage(Reply.searchMsgID);
 
     const videoURL = v?.play || v?.wmplay;
-    if (!videoURL) throw new Error("No downloadable URL in result.");
+    if (!videoURL) throw new Error("No downloadable URL found.");
 
     let stream;
     try {
@@ -149,7 +152,7 @@ module.exports.onReply = async function ({ api, event, Reply }) {
 
     const author = v?.author?.nickname || v?.author?.unique_id || "Unknown";
 
-    return api.sendMessage({
+    api.sendMessage({
       body:
 `🎬 ${v?.title || "TikTok Video"}
 👤 ${author}  •  ⏱️ ${fmtDur(v?.duration)}
