@@ -18,8 +18,8 @@ const responseOpeners = [
 
 module.exports = {
   config: {
-    name: "llama",
-    aliases: ["meta", "ai"],
+    name: "ai",
+    aliases: ["meta", "llama"],
     version: "1.4",
     author: "Metaai",
     countDown: 0,
