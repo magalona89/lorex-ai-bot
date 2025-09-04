@@ -1,4 +1,3 @@
-
 const axios = require("axios");
 
 function convertToBold(text) {
@@ -14,7 +13,7 @@ function convertToBold(text) {
 }
 
 const responseOpeners = [
-  "𝙇𝙇𝘼𝙈𝘼 4"
+  "𝙇𝙇𝘼𝙈𝘼 𝟰"
 ];
 
 module.exports = {
@@ -35,34 +34,34 @@ module.exports = {
   async onStart({ message, event, args }) {
     const prompt = args.join(" ").trim();
     if (!prompt || prompt.length < 2) {
-      return message.reply("🚀 My name is Messandra Ai Powered by Llama 4 and Meta Ai how can I help you today?");
+      return message.reply("🚀 My name is Messandra, powered by LLaMA 4 and Meta AI. How can I assist you today?");
     }
 
-    // Send loading message
-    const loadingMsg = await message.reply("🔄 Loading response...");
+    // Send temporary loading message
+    const loadingMsg = await message.reply("🔄 Generating response...");
 
     try {
-      // Call the API with the prompt
-      const response = await axios.get("https://arychauhann.onrender.com/api/metaai", {
-        params: {
-          prompt: encodeURIComponent(prompt)
-        },
-        timeout: 10000 // 10 seconds timeout for faster response
+      // Call external Meta AI API
+      const { data } = await axios.get("https://arychauhann.onrender.com/api/metaai", {
+        params: { prompt: encodeURIComponent(prompt) },
+        timeout: 10000
       });
 
-      // Parse the response
-      if (response.data && response.data.result) {
-        const formatted = response.data.result
-          .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t)) // Bold markdown
-          .replace(/\n{3,}/g, '\n\n'); // Clean extra newlines
+      // Check and format response
+      if (data?.result) {
+        const formatted = data.result
+          .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
+          .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
+          .replace(/\n{3,}/g, "\n\n");
+
         const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
         return message.edit(`${opener}\n\n${formatted}`, loadingMsg.messageID);
-      } else {
-        return message.edit("❌ Unable to get a response. Please try a different prompt.", loadingMsg.messageID);
       }
+
+      return message.edit("❌ Unable to retrieve a valid response. Try another prompt.", loadingMsg.messageID);
     } catch (error) {
-      console.error("Meta AI API Error:", error);
-      return message.edit("❌ Error connecting to Meta AI API. Please try again later.", loadingMsg.messageID);
+      console.error("❌ Meta AI API Error:", error?.response?.data || error.message || error);
+      return message.edit("⚠️ Error connecting to Meta AI. Please try again later.", loadingMsg.messageID);
     }
   }
 };
