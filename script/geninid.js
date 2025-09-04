@@ -3,7 +3,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 module.exports.config = {
-  name: 'geminu',
+  name: 'gemini',
   version: '1.0.4',
   hasPermission: 0,
   usePrefix: false,
