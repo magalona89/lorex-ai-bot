@@ -32,8 +32,8 @@ function splitMessage(text, maxLength) {
 }
 
 module.exports.config = {
-  name: 'gpt5',
-  version: '1.0.0',
+  name: 'meta',
+  version: '1.0.1',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['messandra', 'gpt-daikyu'],
@@ -54,7 +54,7 @@ module.exports.run = async function ({ api, event, args }) {
   }
 
   const loadingMsg = await new Promise(resolve => {
-    api.sendMessage("🔄Messandra GPT-5 is thinking...", threadID, (err, info) => resolve(info));
+    api.sendMessage("🤖 Messandra GPT-5 is thinking...", threadID, (err, info) => resolve(info));
   });
 
   try {
@@ -66,7 +66,14 @@ module.exports.run = async function ({ api, event, args }) {
       return api.editMessage("⚠️ Empty response from Daikyu API.", loadingMsg.messageID, threadID);
     }
 
-    const formatted = raw
+    // 🔍 Remove lines mentioning "upload image" or similar
+    const cleaned = raw
+      .split('\n')
+      .filter(line => !/upload (an )?image|please upload|you can upload/i.test(line))
+      .join('\n');
+
+    // 🔤 Format response
+    const formatted = cleaned
       .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
       .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
       .replace(/###\s*/g, '')
@@ -74,13 +81,14 @@ module.exports.run = async function ({ api, event, args }) {
 
     await api.unsendMessage(loadingMsg.messageID);
 
-    const chunks = splitMessage(`🤖 𝙈𝙀𝙎𝙎𝘼𝙉𝘿𝙍𝘼 𝗚𝗣𝗧-𝟱\n\n${formatted}`, 1800);
+    const fullMessage = `🤖 𝙈𝙀𝙎𝙎𝘼𝙉𝘿𝙍𝘼 𝗚𝗣𝗧-𝟱\n\n${formatted}`;
+    const chunks = splitMessage(fullMessage, 1800);
     for (const chunk of chunks) {
       await api.sendMessage(chunk, threadID);
     }
 
   } catch (err) {
-    console.error("Daikyu API error:", err.message);
+    console.error("Daikyu API Error:", err.message);
     return api.editMessage("❌ Error while calling Daikyu GPT-5 API.", loadingMsg.messageID, threadID);
   }
 };
