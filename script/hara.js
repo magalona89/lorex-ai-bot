@@ -44,11 +44,11 @@ const clearUserMemory = (uid) => {
 };
 
 module.exports.config = {
-  name: 'Messandra',
+  name: 'haraf',
   version: '1.1.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['hara', 'ds'],
+  aliases: ['llama', 'ds'],
   description: "Ask Deepseek V3 AI by Kaizenji.",
   usages: "ai2 [prompt]",
   credits: 'Kaizenji + Enhanced by OpenAI',
@@ -62,7 +62,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!input) {
     return api.sendMessage(
-      "🔷 Hi there! I'm 𝙃𝙖𝙧𝙖 𝘾𝙖𝙨𝙨𝙖𝙣𝙙𝙧𝙖 AI, your assistant powered by Deepseek V3. How can I help you today?\n\n📩 For issues, contact the owner: https://www.facebook.com/ZeromeNaval.61577040643519",
+      " Hi there! I'm 𝙇𝙡𝙖𝙢𝙖 4 AI, your assistant powered by 𝙈𝙚𝙩𝙖 𝘼𝙞. How can I help you today?\n\n📩 For issues, contact the owner: https://www.facebook.com/ZeromeNaval.61577040643519",
       event.threadID,
       event.messageID
     );
@@ -74,7 +74,7 @@ module.exports.run = async function ({ api, event, args }) {
     return api.sendMessage("🧠 Memory cleared. I’ll forget everything from our past chats.", event.threadID, event.messageID);
   }
 
-  api.sendMessage("💠 Generating response...", event.threadID, event.messageID);
+  api.sendMessage("⌛Generating response...", event.threadID, event.messageID);
 
   const history = getUserMemory(uid);
   history.push({ role: "user", content: input });
