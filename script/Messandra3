@@ -1,40 +1,43 @@
-const axios = require("axios");
+const axios = require('axios');
 
-const responseOpeners = ["𝗔𝗿𝗶𝗮 𝗔𝗜"];
-
-const config = {
-  name: "aria",
-  aliases: ["ariaai"],
-  description: "Interact with Aria AI",
-  usage: "<query>",
-  cooldown: 0,
-  permissions: [0],
-  credits: "Keijo"
+module.exports.config = {
+  name: 'aria',
+  version: '1.0.0',
+  hasPermission: 0,
+  usePrefix: false,
+  aliases: ['aria', 'askaria'],
+  description: "Chat with Aria AI via Betadash API.",
+  usages: "aria [message]",
+  cooldowns: 0,
+  dependencies: { "axios": "" }
 };
 
-async function onStart({ message, args, event }) {
-  const query = args.join(" ").trim();
+module.exports.run = async function({ api, event, args }) {
+  const input = args.join(' ').trim();
 
-  if (!query) {
-    return message.reply(
-      "🔷 I'm Aria AI, your digital companion! I'm here to assist, inform, and chat. What can I help you with today? Created by Hara Amihan"
+  if (!input) {
+    return api.sendMessage(
+      "Hi! I’m Aria AI. Please type a message to start chatting.",
+      event.threadID,
+      event.messageID
     );
   }
+
+  api.sendMessage("⌛ Sending your question to Aria...", event.threadID, event.messageID);
 
   try {
-    const response = await axios.get(
-      `https://betadash-api-swordslush-production.up.railway.app/Aria?ask=${encodeURIComponent(query)}&userid=${encodeURIComponent(event.senderID)}&stream=`
-    );
+    const response = await axios.get('https://betadash-api-swordslush-production.up.railway.app/Aria', {
+      params: { ask: input }
+    });
 
-    const ariaReply = response.data?.response || response.data || "❌ Aria AI didn't respond. Please try again later.";
-    return message.reply(`${responseOpeners[0]}: ${ariaReply}`);
-  } catch (err) {
-    console.error("Aria AI Error:", err);
-    return message.reply("⚠️ Error interacting with Aria AI. Please try again later.");
+    if (!response.data) {
+      return api.sendMessage("⚠️ Aria didn't respond. Please try again.", event.threadID, event.messageID);
+    }
+
+    return api.sendMessage(response.data, event.threadID, event.messageID);
+
+  } catch (error) {
+    console.error("Error contacting Aria API:", error.message || error);
+    return api.sendMessage("⚠️ Error contacting Aria. Try again later.", event.threadID, event.messageID);
   }
-}
-
-module.exports = {
-  config,
-  onStart
 };
