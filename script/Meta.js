@@ -17,7 +17,7 @@ module.exports.config = {
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['meta', 'metaai'],
+  aliases: ['meta', 'llama'],
   description: "Meta AI via arychauhann API",
   usages: "metaai [prompt]",
   credits: 'ChatGPT',
@@ -32,7 +32,7 @@ module.exports.run = async function({ api, event, args }) {
 
   if (!prompt) {
     return api.sendMessage(
-      "🌟 Greetings! I am Meta AI assistant. Please provide a prompt.",
+      "🌟 Greetings! I am Messandra AI assistant powered by Llama 4 and Meta Ai. how can I help you today.",
       threadID,
       messageID
     );
