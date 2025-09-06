@@ -13,7 +13,7 @@ function convertToBold(text) {
 }
 
 module.exports.config = {
-  name: 'metaai',
+  name: 'meta',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
