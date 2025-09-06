@@ -1,0 +1,106 @@
+const axios = require('axios');
+
+function convertToBold(text) {
+  const boldMap = {
+    'a': '𝗮','b': '𝗯','c': '𝗰','d': '𝗱','e': '𝗲','f': '𝗳','g': '𝗴','h': '𝗵','i': '𝗶','j': '𝗷',
+    'k': '𝗸','l': '𝗹','m': '𝗺','n': '𝗻','o': '𝗼','p': '𝗽','q': '𝗾','r': '𝗿','s': '𝘀','t': '𝘁',
+    'u': '𝘂','v': '𝘃','w': '𝘄','x': '𝘅','y': '𝘆','z': '𝘇',
+    'A': '𝗔','B': '𝗕','C': '𝗖','D': '𝗗','E': '𝗘','F': '𝗙','G': '𝗚','H': '𝗛','I': '𝗜','J': '𝗝',
+    'K': '𝗞','L': '𝗟','M': '𝗠','N': '𝗡','O': '𝗢','P': '𝗣','Q': '𝗤','R': '𝗥','S': '𝗦','T': '𝗧',
+    'U': '𝗨','V': '𝗩','W': '𝗪','X': '𝗫','Y': '𝗬','Z': '𝗭',
+  };
+  return text.split('').map(char => boldMap[char] || char).join('');
+}
+
+function splitMessage(text, maxLength) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let chunk = '';
+
+  for (const line of lines) {
+    if ((chunk + '\n' + line).length > maxLength) {
+      chunks.push(chunk);
+      chunk = line;
+    } else {
+      chunk += (chunk ? '\n' : '') + line;
+    }
+  }
+
+  if (chunk) chunks.push(chunk);
+  return chunks;
+}
+
+const responseOpeners = ["𝗔𝗿𝗶𝗮 𝗔𝗜"];
+
+module.exports.config = {
+  name: 'aria',
+  version: '1.1.1',
+  hasPermission: 0,
+  usePrefix: false,
+  aliases: ['aria', 'ariaai'],
+  description: "Aria AI via Kaiz API",
+  usages: "ai2 [prompt]",
+  credits: 'LorexAi',
+  cooldowns: 0
+};
+
+module.exports.run = async function({ api, event, args }) {
+  const prompt = args.join(' ');
+  const uid = event.senderID;
+  const threadID = event.threadID;
+  const messageID = event.messageID;
+
+  // Require reply sa message para magpatuloy
+  if (!event.messageReply) {
+    return api.sendMessage(
+      "❌ Pakisagot muna ang isang mensahe gamit ang command na ito.",
+      threadID,
+      messageID
+    );
+  }
+
+  if (!prompt) {
+    return api.sendMessage(
+      "🌟Greetings! I am 𝗠𝗲𝘀𝘀𝗮𝗻𝗱𝗿𝗮, your gateway to GPT‑4 intelligence. I am here to assist you.",
+      threadID,
+      messageID
+    );
+  }
+
+  const originalMessage = event.messageReply.body || "[Walang laman ang ni-reply-an na mensahe]";
+  const fullPrompt = `${prompt}\n\n${convertToBold('📌 Original message:')}\n${originalMessage}`;
+
+  const loadingMsg = await new Promise(resolve => {
+    api.sendMessage("🔄 Searching...", threadID, (err, info) => resolve(info));
+  });
+
+  try {
+    const url = `https://kaiz-apis.gleeze.com/api/aria?ask=${encodeURIComponent(fullPrompt)}&uid=${uid}&apikey=5ce15f34-7e46-4e7e-8ee7-5e934afe563b`;
+    const { data } = await axios.get(url);
+
+    const raw = data?.response;
+    if (!raw || raw.trim() === '') {
+      return api.editMessage("⚠️ No response received from Aria API.", loadingMsg.messageID, threadID);
+    }
+
+    const formatted = raw
+      .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
+      .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
+      .replace(/###\s*/g, '')
+      .replace(/\n{3,}/g, '\n\n');
+
+    const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
+    const fullMessage = `${opener}\n\n${formatted}`;
+
+    await api.unsendMessage(loadingMsg.messageID);
+
+    const chunks = splitMessage(fullMessage, 1800);
+    for (const chunk of chunks) {
+      await api.sendMessage(chunk, threadID);
+    }
+
+  } catch (error) {
+    console.error("❌ Aria API Error:", error.message);
+    return api.editMessage("❌ Error while contacting Aria API.", loadingMsg.messageID, threadID);
+  }
+};
