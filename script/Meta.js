@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-// Bold font converter (𝗕𝗼𝗹𝗱)
+// Optional: Bold converter
 function convertToBold(text) {
   const boldMap = {
     'a': '𝗮','b': '𝗯','c': '𝗰','d': '𝗱','e': '𝗲','f': '𝗳','g': '𝗴','h': '𝗵','i': '𝗶','j': '𝗷',
@@ -9,68 +9,83 @@ function convertToBold(text) {
     'A': '𝗔','B': '𝗕','C': '𝗖','D': '𝗗','E': '𝗘','F': '𝗙','G': '𝗚','H': '𝗛','I': '𝗜','J': '𝗝',
     'K': '𝗞','L': '𝗟','M': '𝗠','N': '𝗡','O': '𝗢','P': '𝗣','Q': '𝗤','R': '𝗥','S': '𝗦','T': '𝗧',
     'U': '𝗨','V': '𝗩','W': '𝗪','X': '𝗫','Y': '𝗬','Z': '𝗭',
+    '0': '𝟬','1': '𝟭','2': '𝟮','3': '𝟯','4': '𝟰','5': '𝟱','6': '𝟲','7': '𝟳','8': '𝟴','9': '𝟵',
   };
   return text.split('').map(c => boldMap[c] || c).join('');
 }
 
+// Optional: Splitting long responses
+function splitMessage(text, maxLength) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let chunk = '';
+
+  for (const line of lines) {
+    if ((chunk + '\n' + line).length > maxLength) {
+      chunks.push(chunk);
+      chunk = line;
+    } else {
+      chunk += (chunk ? '\n' : '') + line;
+    }
+  }
+
+  if (chunk) chunks.push(chunk);
+  return chunks;
+}
+
 module.exports.config = {
-  name: 'llama',
+  name: 'meta',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['llama', 'l3t'],
-  description: 'Chat with LLaMA 3 Turbo via Kaiz API',
-  usages: 'llama3turbo [your message]',
-  credits: 'You',
+  aliases: ['llama', 'meta-ai'],
+  description: "Chat with Meta AI via external API",
+  usages: "metaai [your message]",
+  credits: "You",
   cooldowns: 0
 };
 
-// Temporary message while waiting for API response
-async function sendTemp(api, threadID, message) {
-  return new Promise(resolve => {
-    api.sendMessage(message, threadID, (err, info) => resolve(info));
-  });
-}
-
 module.exports.run = async function({ api, event, args }) {
-  const ask = args.join(' ').trim();
-  const uid = event.senderID;
+  const prompt = args.join(' ').trim();
   const threadID = event.threadID;
   const messageID = event.messageID;
+  const senderID = event.senderID;
 
-  if (!ask) {
-    return api.sendMessage('❓Please provide a prompt.\n\nExample: llama3turbo Hello!', threadID, messageID);
+  if (!prompt) {
+    return api.sendMessage("❓Paki-type ang iyong prompt.", threadID, messageID);
   }
 
-  const temp = await sendTemp(api, threadID, '🔄 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴 𝗿𝗲𝗾𝘂𝗲𝘀𝘁 𝘁𝗼 𝗟𝗟𝗔𝗠𝗔-𝟯...');
+  const resetParam = ''; // Set to '' or some value if reset is needed
+  const loadingMsg = await new Promise(resolve => {
+    api.sendMessage("⏳ Meta AI is thinking...", threadID, (err, info) => resolve(info));
+  });
 
   try {
-    const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/llama3-turbo', {
-      params: {
-        ask,
-        uid,
-        apikey: '5ce15f34-7e46-4e7e-8ee7-5e934afe563b'
-      }
-    });
+    const url = `https://arychauhann.onrender.com/api/metaai?prompt=${encodeURIComponent(prompt)}&uid=${senderID}&reset=${encodeURIComponent(resetParam)}`;
+    const response = await axios.get(url);
 
-    const response = data?.response || data?.reply || data?.answer;
-
-    if (!response) {
-      return api.editMessage('⚠️ No valid response received from LLaMA-3.', temp.messageID, threadID);
+    const raw = response.data?.response || response.data?.reply || '';
+    if (!raw.trim()) {
+      return api.editMessage("⚠️ Walang sagot mula sa Meta AI.", loadingMsg.messageID, threadID);
     }
 
-    // Optional: format with bold from markdown-like input
-    const formatted = response
-      .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t)) // convert **text** to bold
-      .replace(/##(.*?)##/g, (_, t) => convertToBold(t))     // convert ##text## to bold
+    // Optional formatting
+    const formatted = raw
+      .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
+      .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
+      .replace(/###\s*/g, '')
       .replace(/\n{3,}/g, '\n\n');
 
-    const header = convertToBold("LLAMA-3 TURBO");
+    await api.unsendMessage(loadingMsg.messageID);
 
-    return api.editMessage(`🤖 ${header}\n\n${formatted}`, temp.messageID, threadID);
+    const fullReply = `𝙇𝙇𝘼𝙈𝘼 4\n\n${formatted}`;
+    const chunks = splitMessage(fullReply, 1800);
+    for (const chunk of chunks) {
+      await api.sendMessage(chunk, threadID);
+    }
 
-  } catch (err) {
-    console.error('❌ LLaMA-3 Turbo API Error:', err);
-    return api.editMessage('❌ Failed to connect to LLaMA-3 Turbo API.', temp.messageID, threadID);
+  } catch (error) {
+    console.error("MetaAI API Error:", error.response?.data || error.message);
+    return api.editMessage("❌ Error habang kinakausap ang Meta AI API.", loadingMsg.messageID, threadID);
   }
 };
