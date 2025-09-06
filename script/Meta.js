@@ -1,50 +1,40 @@
 const axios = require('axios');
 
 module.exports.config = {
-  name: 'metaai',
+  name: 'llama',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['meta', 'llama'],
-  description: "Meta AI via arychauhann API",
-  usages: "metaai [prompt]",
-  credits: 'ChatGPT',
+  aliases: [],
+  description: "Meta AI via Arychauhann API (no UID, no extra formatting)",
+  usages: "llama [your prompt]",
+  credits: "ChatGPT",
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
-  const prompt = args.join(' ');
-  const uid = event.senderID;
+  const prompt = args.join(" ");
   const threadID = event.threadID;
   const messageID = event.messageID;
 
   if (!prompt) {
-    return api.sendMessage(
-      "🌟 Hi! I'm Meta AI. Please enter your prompt after the command.",
-      threadID,
-      messageID
-    );
+    return api.sendMessage("❗ Please enter a prompt.\n\nExample:\nllama What is gravity?", threadID, messageID);
   }
 
-  const loadingMsg = await new Promise(resolve => {
-    api.sendMessage("🔄 Processing your request...", threadID, (err, info) => resolve(info));
-  });
+  const loading = await new Promise(resolve =>
+    api.sendMessage("⏳ Thinking...", threadID, (err, info) => resolve(info))
+  );
 
   try {
-    const url = `https://arychauhann.onrender.com/api/metaai?ask=${encodeURIComponent(prompt)}&uid=${uid}`;
-    const { data } = await axios.get(url);
+    const url = `https://arychauhann.onrender.com/api/metaai?prompt=${encodeURIComponent(prompt)}`;
+    const response = await axios.get(url);
 
-    const raw = data?.response;
-    if (!raw || raw.trim() === '') {
-      return api.editMessage("⚠️ Walang natanggap na sagot mula sa Meta AI.", loadingMsg.messageID, threadID);
-    }
+    const answer = response.data?.response || "🤖 [Empty response received from Meta AI]";
 
-    await api.unsendMessage(loadingMsg.messageID);
-
-    await api.sendMessage(`🤖 Meta AI:\n\n${raw}`, threadID);
-
-  } catch (error) {
-    console.error("❌ Meta AI API Error:", error.message);
-    return api.editMessage("❌ Error habang kumokonekta sa Meta AI API.", loadingMsg.messageID, threadID);
+    await api.unsendMessage(loading.messageID);
+    return api.sendMessage(answer, threadID);
+  } catch (err) {
+    console.error("❌ Error from Meta API:", err.message);
+    return api.editMessage("❌ Failed to get response from Meta AI.", loading.messageID, threadID);
   }
 };
