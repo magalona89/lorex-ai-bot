@@ -1,13 +1,13 @@
 const axios = require('axios');
 
 module.exports.config = {
-  name: 'metaai',
+  name: 'llama',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['meta', 'llama'],
-  description: 'AI chatbot using MetaAI API',
-  usages: 'metaai [your message]',
+  aliases: ['llama', 'l3t'],
+  description: 'Chat with Llama‑3‑Turbo via Kaiz API',
+  usages: 'llama3turbo [your message] (optional: reset)',
   credits: 'You',
   cooldowns: 0
 };
@@ -19,36 +19,55 @@ async function sendTemp(api, threadID, message) {
 }
 
 module.exports.run = async function({ api, event, args }) {
-  const prompt = args.join(' ');
+  const ask = args.join(' ').trim();
   const uid = event.senderID;
   const threadID = event.threadID;
   const messageID = event.messageID;
 
-  if (!prompt) {
-    return api.sendMessage('❌ Please provide a prompt.\n\nExample: llama Hello there!', threadID, messageID);
+  if (!ask) {
+    return api.sendMessage(
+      '❓ Please provide a prompt. Example: llama Hello there!',
+      threadID,
+      messageID
+    );
   }
 
-  // Send temporary "processing" message
-  const temp = await sendTemp(api, threadID, '🔄 Thinking...');
+  // Show temporary processing message
+  const temp = await sendTemp(api, threadID, '🔄 Processing with Llama‑3‑Turbo...');
 
   try {
-    const { data } = await axios.get('https://arychauhann.onrender.com/api/metaai', {
+    const { data } = await axios.get('https://kaiz-apis.gleeze.com/api/llama3-turbo', {
       params: {
-        prompt,
+        ask,
         uid,
-        reset: ''
+        apikey: '5ce15f34-7e46-4e7e-8ee7-5e934afe563b'
       }
     });
 
-    if (!data || !data.response) {
-      return api.editMessage("⚠️ Empty or invalid response from MetaAI.", temp.messageID, threadID);
+    if (!data || (!data.response && !data.reply && !data.answer)) {
+      return api.editMessage(
+        '⚠️ Unexpected response format from Llama‑3‑Turbo.',
+        temp.messageID,
+        threadID
+      );
     }
 
-    // Send the AI response
-    return api.editMessage(`🤖 𝗠𝗲𝘁𝗮𝗔𝗜:\n\n${data.response}`, temp.messageID, threadID);
+    // Choose appropriate key if exists
+    const output =
+      data.response || data.reply || data.answer || JSON.stringify(data);
+
+    return api.editMessage(
+      `🤖 **Llama‑3‑Turbo says:**\n\n${output}`,
+      temp.messageID,
+      threadID
+    );
 
   } catch (err) {
-    console.error('MetaAI error:', err);
-    return api.editMessage("❌ Failed to get a response from MetaAI. Try again later.", temp.messageID, threadID);
+    console.error('Llama‑3‑Turbo API error:', err);
+    return api.editMessage(
+      '❌ Failed to connect to Llama‑3‑Turbo API. Try again later.',
+      temp.messageID,
+      threadID
+    );
   }
 };
