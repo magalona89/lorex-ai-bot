@@ -24,7 +24,7 @@ module.exports.config = {
   version: '1.1.2',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['aria', 'ariaai'],
+  aliases: ['aria6', 'aria'],
   description: "Aria AI via BetaDash API",
   usages: "ai2 [prompt]",
   credits: 'LorexAi (Updated by ChatGPT)',
@@ -40,7 +40,7 @@ module.exports.run = async function({ api, event, args }) {
   if (!prompt) return api.sendMessage("🫠 Please enter a prompt.", threadID, messageID);
 
   const loadingMsg = await new Promise(resolve => {
-    api.sendMessage("🔄 Loading...", threadID, (err, info) => resolve(info));
+    api.sendMessage("🔄𝘼𝙧𝙞𝙖 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙞𝙣𝙜 𝙥𝙡𝙖𝙘𝙚 𝙬𝙖𝙞𝙩...", threadID, (err, info) => resolve(info));
   });
 
   try {
