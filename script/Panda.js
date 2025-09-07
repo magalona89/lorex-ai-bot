@@ -20,7 +20,7 @@ const responseOpeners = [
 ];
 
 module.exports.config = {
-  name: 'aria2',
+  name: 'aria',
   version: '1.1.2',
   hasPermission: 0,
   usePrefix: false,
