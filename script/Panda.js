@@ -20,11 +20,11 @@ const responseOpeners = [
 ];
 
 module.exports.config = {
-  name: 'aria',
+  name: 'ariaai',
   version: '1.1.2',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['aria6', 'aria'],
+  aliases: ['aria', 'ariaai'],
   description: "Aria AI via BetaDash API",
   usages: "ai2 [prompt]",
   credits: 'LorexAi (Updated by ChatGPT)',
