@@ -32,7 +32,7 @@ function splitMessage(text, maxLength = 1800) {
 }
 
 module.exports.config = {
-  name: 'messandra',
+  name: 'messandra5',
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
