@@ -3,7 +3,7 @@ const axios = require("axios");
 const path = require("path");
 
 module.exports.config = {
-  name: "post",
+  name: "postt",
   version: "1.5",
   hasPermission: 0,
   usePrefix: false,
