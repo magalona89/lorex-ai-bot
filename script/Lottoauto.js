@@ -1,117 +1,180 @@
-const axios = require("axios");
 const cron = require("node-cron");
-const cheerio = require("cheerio");
-const fs = require("fs");
-const path = require("path");
 
 module.exports.config = {
-  name: "lottoauto",
-  version: "1.2",
-  hasPermission: 2,
+  name: "gagstock",
+  version: "4.0",
+  hasPermission: 0, // accessible by all users
   usePrefix: true,
   aliases: [],
-  description: "Auto-post Lotto & Bingo Plus results every 3 minutes (ON/OFF)",
-  usages: "[on/off]",
+  description: "Auto-post GagStock every 3 minutes with poster name, top score & level up",
+  usages: "[on/off/score]",
   cooldowns: 0,
 };
 
-let intervalTask = null;
-const imageURL = "https://i.imgur.com/Bkb0kDB.jpeg";
-const imagePath = path.join(__dirname, "cache", "lotto_banner.jpeg");
+let gagstockTask = null;
+let currentPoster = null;
+let userScores = {}; // { userID: totalGainPoints }
+let userLevels = {}; // track levels reached to avoid repeated level-up posts
+
+const LEVEL_UP_THRESHOLD = 200;
+
+const items = [
+  { name: "Apple", emoji: "🍎", basePrice: 50 },
+  { name: "Carrot", emoji: "🥕", basePrice: 30 },
+  { name: "Banana", emoji: "🍌", basePrice: 25 },
+  { name: "Tomato", emoji: "🍅", basePrice: 40 },
+  { name: "Cabbage", emoji: "🥬", basePrice: 35 },
+  { name: "Eggplant", emoji: "🍆", basePrice: 28 },
+  { name: "Pineapple", emoji: "🍍", basePrice: 60 },
+  { name: "Watermelon", emoji: "🍉", basePrice: 70 },
+];
+
+// Helper: generate stock data + total gain points for current run
+function generateGagStockData() {
+  let upCount = 0;
+  let downCount = 0;
+  let totalGainPoints = 0; // Sum of positive % changes
+
+  const marketData = items.map(item => {
+    const percentChange = Math.floor(Math.random() * 21) - 10; // -10% to +10%
+    const newPrice = Math.max(5, Math.round(item.basePrice * (1 + percentChange / 100)));
+    let trendIcon = "➖";
+    if (percentChange > 0) {
+      trendIcon = "📈";
+      upCount++;
+      totalGainPoints += percentChange;
+    } else if (percentChange < 0) {
+      trendIcon = "📉";
+      downCount++;
+    }
+
+    return {
+      ...item,
+      price: newPrice,
+      change: percentChange,
+      trend: trendIcon,
+    };
+  });
+
+  // Sort descending by absolute change
+  const sorted = [...marketData].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+
+  // Top gainer and loser
+  const topGainer = sorted.find(i => i.change > 0);
+  const topLoser = sorted.find(i => i.change < 0);
+
+  const summaryTrend = upCount > downCount ? "🟢 Uptrend" :
+                       downCount > upCount ? "🔴 Downtrend" : "🟤 Mixed";
+
+  let message = `🌿 𝗚𝗮𝗴𝗦𝘁𝗼𝗰𝗸 𝗧𝗿𝗮𝗰𝗸𝗲𝗿 (Fruits & Vegetables)\n📊 Market Mood: ${summaryTrend}\n\n`;
+
+  message += sorted.map(item =>
+    `${item.emoji} ${item.name} – ₱${item.price}/kg – ${item.trend} ${item.change >= 0 ? "+" : ""}${item.change}%`
+  ).join("\n");
+
+  if (topGainer || topLoser) {
+    message += `\n\n🏆 Top Gainer: ${topGainer ? `${topGainer.emoji} ${topGainer.name} (+${topGainer.change}%)` : "N/A"}`;
+    message += `\n📉 Top Loser: ${topLoser ? `${topLoser.emoji} ${topLoser.name} (${topLoser.change}%)` : "N/A"}`;
+  }
+
+  return { message, totalGainPoints };
+}
+
+// Helper: format top score list message
+function getTopScoresMessage() {
+  const entries = Object.entries(userScores);
+  if (entries.length === 0) return "No top scores yet.";
+
+  // Sort descending by points
+  const sorted = entries.sort((a, b) => b[1] - a[1]);
+
+  let msg = "🏅 𝗚𝗮𝗴𝗦𝘁𝗼𝗰𝗸 𝗧𝗼𝗽 𝗦𝗰𝗼𝗿𝗲𝗿𝘀:\n";
+  for (let i = 0; i < Math.min(sorted.length, 5); i++) {
+    const [userID, score] = sorted[i];
+    msg += `${i + 1}. ${userID} — ${score.toFixed(1)} points\n`;
+  }
+  return msg;
+}
+
+// Helper: check for level up and return message or null
+function checkLevelUp(userID) {
+  const score = userScores[userID] || 0;
+  const currentLevel = userLevels[userID] || 0;
+  const newLevel = Math.floor(score / LEVEL_UP_THRESHOLD);
+
+  if (newLevel > currentLevel) {
+    userLevels[userID] = newLevel;
+    return `🏅 Congratulations! <@${userID}> has leveled up to **Level ${newLevel}** with ${score.toFixed(1)} points! 🎉🥳`;
+  }
+  return null;
+}
 
 module.exports.run = async function ({ api, event, args }) {
-  const { threadID, messageID } = event;
+  const { threadID, messageID, senderID } = event;
   const command = args[0]?.toLowerCase();
 
-  if (!["on", "off"].includes(command)) {
+  if (!["on", "off", "score"].includes(command)) {
     return api.sendMessage(
-      "📌 Usage:\n/lottoauto on - Start auto-posting\n/lottoauto off - Stop auto-posting",
+      "📌 Usage:\n/gagstock on - Start auto-posting\n/gagstock off - Stop auto-posting\n/gagstock score - Show top scorers",
       threadID,
       messageID
     );
   }
 
   if (command === "on") {
-    if (intervalTask) {
-      return api.sendMessage("⚠️ Auto-posting is already running.", threadID, messageID);
+    if (gagstockTask) {
+      return api.sendMessage("⚠️ GagStock is already running.", threadID, messageID);
     }
 
-    // Ensure image is downloaded
-    await downloadImageIfNeeded(imageURL, imagePath);
+    currentPoster = senderID;
 
-    api.sendMessage("✅ Auto-posting started! Results will be posted every 3 minutes.", threadID, messageID);
+    api.sendMessage("✅ GagStock auto-posting started! Updates every 3 minutes.", threadID, messageID);
 
-    intervalTask = cron.schedule("*/3 * * * *", async () => {
-      try {
-        const lottoData = await getLottoResults();
-        const bingoData = await getBingoPlusResults();
+    gagstockTask = cron.schedule("*/3 * * * *", async () => {
+      const { message, totalGainPoints } = generateGagStockData();
 
-        const message = {
-          body: `🎯 𝗟𝗔𝗧𝗘𝗦𝗧 𝗥𝗘𝗦𝗨𝗟𝗧𝗦\n\n📌 𝗟𝗢𝗧𝗧𝗢:\n${lottoData}\n\n🎲 𝗕𝗜𝗡𝗚𝗢 𝗣𝗟𝗨𝗦:\n${bingoData}`,
-          attachment: fs.createReadStream(imagePath),
-        };
+      // Update user score for current poster
+      if (currentPoster) {
+        if (!userScores[currentPoster]) userScores[currentPoster] = 0;
+        userScores[currentPoster] += totalGainPoints;
 
-        api.sendMessage(message, threadID);
-      } catch (err) {
-        console.error("❌ Error auto-posting:", err);
-        api.sendMessage("❌ Failed to fetch Lotto/Bingo results.", threadID);
+        // Check for level up message
+        const levelUpMsg = checkLevelUp(currentPoster);
+
+        try {
+          const userInfo = await api.getUserInfo(currentPoster);
+          const name = userInfo?.[currentPoster]?.name || "Unknown";
+
+          const finalMessage = `${message}\n\n👤 Posted by: ${name}`;
+
+          await api.sendMessage(finalMessage, threadID);
+
+          if (levelUpMsg) {
+            await api.sendMessage(levelUpMsg, threadID);
+          }
+        } catch (e) {
+          // fallback
+          await api.sendMessage(`${message}\n\n👤 Posted by: Unknown`, threadID);
+
+          if (levelUpMsg) {
+            await api.sendMessage(levelUpMsg, threadID);
+          }
+        }
       }
     });
 
   } else if (command === "off") {
-    if (!intervalTask) {
-      return api.sendMessage("⚠️ Auto-posting is not running.", threadID, messageID);
+    if (!gagstockTask) {
+      return api.sendMessage("⚠️ GagStock is not running.", threadID, messageID);
     }
 
-    intervalTask.stop();
-    intervalTask = null;
-    return api.sendMessage("🛑 Auto-posting stopped.", threadID, messageID);
+    gagstockTask.stop();
+    gagstockTask = null;
+    currentPoster = null;
+
+    return api.sendMessage("🛑 GagStock auto-posting stopped.", threadID, messageID);
+  } else if (command === "score") {
+    const topScoresMessage = getTopScoresMessage();
+    return api.sendMessage(topScoresMessage, threadID, messageID);
   }
 };
-
-// Utility: Download image if not already cached
-async function downloadImageIfNeeded(url, filePath) {
-  if (fs.existsSync(filePath)) return;
-
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-
-  const response = await axios({
-    url,
-    method: "GET",
-    responseType: "stream",
-  });
-
-  const writer = fs.createWriteStream(filePath);
-  response.data.pipe(writer);
-
-  await new Promise((resolve, reject) => {
-    writer.on("finish", resolve);
-    writer.on("error", reject);
-  });
-}
-
-// Placeholder functions — update with real selectors
-async function getLottoResults() {
-  try {
-    const res = await axios.get("https://www.philippinepcsolotto.com/");
-    const $ = cheerio.load(res.data);
-    const result = $("div#game_result .lotto_result").first().text().trim();
-    return result || "No Lotto result found.";
-  } catch (err) {
-    console.error("❌ Lotto fetch error:", err.message);
-    return "⚠️ Lotto data unavailable.";
-  }
-}
-
-async function getBingoPlusResults() {
-  try {
-    const res = await axios.get("https://www.bingoplus.com.ph/");
-    const $ = cheerio.load(res.data);
-    const result = $("div#bingo_winner .result").first().text().trim();
-    return result || "No Bingo result found.";
-  } catch (err) {
-    console.error("❌ Bingo fetch error:", err.message);
-    return "⚠️ Bingo Plus data unavailable.";
-  }
-}
