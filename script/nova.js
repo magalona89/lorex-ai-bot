@@ -28,27 +28,46 @@ module.exports.config = {
   version: '2.1.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['asknova', 'novaa', 'ai', 'image', 'feedback'],
-  description: "Ask Nova AI, generate/edit image, or send feedback.",
-  usages: "nova <prompt> (reply to image for image edit)\nnova feedback <message>",
+  aliases: ['asknova', 'novaa', 'ai', 'image', 'feedback', 'kick'],
+  description: "Ask Nova AI, generate/edit image, send feedback, or kick user (admin only).",
+  usages: "nova <prompt> (reply to image for image edit)\nnova feedback <message>\nnova kick (reply to user message to kick)",
   credits: 'You',
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, messageReply, senderID } = event;
+  const isAdmin = senderID === ADMIN_UID;
+
   if (args.length === 0) {
-    return api.sendMessage("❌ Please provide a prompt or use 'nova feedback <message>'.", threadID, messageID);
+    return api.sendMessage("❌ Please provide a prompt or use 'nova feedback <message>' or reply with 'nova kick'.", threadID, messageID);
   }
 
-  // Handle feedback command: nova feedback <message>
+  // N O V A  K I C K
+  if (args[0].toLowerCase() === 'kick') {
+    if (!isAdmin) {
+      return api.sendMessage("❌ You don't have permission to use this command.", threadID, messageID);
+    }
+    if (!messageReply) {
+      return api.sendMessage("❌ Please reply to the user you want to kick with 'nova kick'.", threadID, messageID);
+    }
+
+    const userToKick = messageReply.senderID;
+    try {
+      await api.removeUserFromGroup(userToKick, threadID);
+      return api.sendMessage(`✅ User has been kicked from the group successfully.`, threadID, messageID);
+    } catch (err) {
+      console.error("Kick error:", err);
+      return api.sendMessage("❌ Failed to kick the user. Make sure I have the right permissions.", threadID, messageID);
+    }
+  }
+
+  // Feedback command
   if (args[0].toLowerCase() === 'feedback') {
     const feedbackMsg = args.slice(1).join(" ");
     if (!feedbackMsg) {
       return api.sendMessage("❌ Please provide a message to send as feedback.\nExample: nova feedback I love this AI!", threadID, messageID);
     }
-
-    // Send feedback directly to admin UID
     try {
       await api.sendMessage(
         `📩 *Nova Feedback*\nFrom: ${senderID}\nThread: ${threadID}\n\nMessage:\n${feedbackMsg}`,
@@ -61,21 +80,17 @@ module.exports.run = async function({ api, event, args }) {
     }
   }
 
-  // Maintenance mode check
-  if (MAINTENANCE_MODE && senderID !== ADMIN_UID) {
-    return api.sendMessage("🚧 Nova AI is currently under maintenance.\nPlease try again later.", threadID);
+  // Maintenance mode check (only admin can bypass)
+  if (MAINTENANCE_MODE && !isAdmin) {
+    return api.sendMessage("🚧 Nova AI is currently under maintenance.\nPlease try again later.", threadID, messageID);
   }
 
   const input = args.join(" ");
 
-  if (!input) {
-    return api.sendMessage("❌ Please provide a prompt.\n\nExample: nova What is quantum computing?\nOr: reply to an image and say: nova make it look vintage", threadID, messageID);
-  }
-
-  // Reacting to show processing
+  // React to show processing
   api.setMessageReaction("⏳", messageID, () => {}, true);
 
-  // IMAGE MODE: If replying to an image
+  // IMAGE MODE: Replying to an image
   if (
     messageReply &&
     Array.isArray(messageReply.attachments) &&
@@ -145,19 +160,9 @@ module.exports.run = async function({ api, event, args }) {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    const suggestions = [
-      "Can you provide some examples of the types of information you can provide?",
-      "What topics are you most knowledgeable about?",
-      "How do you find information?",
-      "Are you able to answer questions in multiple languages?"
-    ];
-
-    const followUp = `\n\n❓ *So, what's on your mind? Try asking:*\n` +
-      suggestions.map(q => `▫️ ${q}`).join('\n');
-
     const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
 
-    return api.editMessage(`${opener}\n\n${formatted}${followUp}`, tempMsg.messageID, threadID);
+    return api.editMessage(`${opener}\n\n${formatted}`, tempMsg.messageID, threadID);
 
   } catch (err) {
     console.error("Nova Text Error:", err);
