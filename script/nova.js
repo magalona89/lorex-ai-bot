@@ -25,12 +25,12 @@ const responseOpeners = [
 
 module.exports.config = {
   name: 'nova',
-  version: '2.1.0',
+  version: '3.1.0',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['asknova', 'novaa', 'ai', 'image', 'feedback', 'kick'],
-  description: "Ask Nova AI, generate/edit image, send feedback, or kick user (admin only).",
-  usages: "nova <prompt> (reply to image for image edit)\nnova feedback <message>\nnova kick (reply to user message to kick)",
+  description: "Ask Nova AI, generate/edit image, send feedback, or admin commands.",
+  usages: "nova <prompt>\nnova feedback <message>\nnova kick (reply to user)\nnova maintenance on/off",
   credits: 'You',
   cooldowns: 0
 };
@@ -39,121 +39,115 @@ module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID, messageReply, senderID } = event;
   const isAdmin = senderID === ADMIN_UID;
 
-  if (args.length === 0) {
-    return api.sendMessage("❌ Please provide a prompt or use 'nova feedback <message>' or reply with 'nova kick'.", threadID, messageID);
+  // Handle Maintenance Mode Toggle by Admin
+  if (args[0]?.toLowerCase() === 'maintenance') {
+    if (!isAdmin) return api.sendMessage("❌ Only the admin can toggle maintenance mode.", threadID, messageID);
+
+    const mode = args[1]?.toLowerCase();
+    if (mode === 'on') {
+      MAINTENANCE_MODE = true;
+      return api.sendMessage("🔧 Maintenance mode is now ON. Only admin can use Nova commands.", threadID, messageID);
+    } else if (mode === 'off') {
+      MAINTENANCE_MODE = false;
+      return api.sendMessage("✅ Maintenance mode is now OFF. Everyone can use Nova again.", threadID, messageID);
+    } else {
+      return api.sendMessage("⚠️ Use `nova maintenance on` or `nova maintenance off`.", threadID, messageID);
+    }
   }
 
-  // N O V A  K I C K
-  if (args[0].toLowerCase() === 'kick') {
+  // Block access to commands during maintenance (except admin)
+  if (MAINTENANCE_MODE && !isAdmin) {
+    return api.sendMessage("🚧 Nova AI is under maintenance. Please try again later.", threadID, messageID);
+  }
+
+  // Handle Kick Command
+  if (args[0]?.toLowerCase() === 'kick') {
     if (!isAdmin) {
       return api.sendMessage("❌ You don't have permission to use this command.", threadID, messageID);
     }
     if (!messageReply) {
-      return api.sendMessage("❌ Please reply to the user you want to kick with 'nova kick'.", threadID, messageID);
+      return api.sendMessage("❌ Reply to the user you want to kick with 'nova kick'.", threadID, messageID);
     }
-
     const userToKick = messageReply.senderID;
     try {
       await api.removeUserFromGroup(userToKick, threadID);
-      return api.sendMessage(`✅ User has been kicked from the group successfully.`, threadID, messageID);
+      return api.sendMessage(`✅ User has been kicked from the group.`, threadID, messageID);
     } catch (err) {
-      console.error("Kick error:", err);
-      return api.sendMessage("❌ Failed to kick the user. Make sure I have the right permissions.", threadID, messageID);
+      console.error("Kick Error:", err);
+      return api.sendMessage("❌ Failed to kick user. Make sure I have admin rights.", threadID, messageID);
     }
   }
 
-  // Feedback command
-  if (args[0].toLowerCase() === 'feedback') {
+  // Handle Feedback
+  if (args[0]?.toLowerCase() === 'feedback') {
     const feedbackMsg = args.slice(1).join(" ");
     if (!feedbackMsg) {
-      return api.sendMessage("❌ Please provide a message to send as feedback.\nExample: nova feedback I love this AI!", threadID, messageID);
+      return api.sendMessage("❌ Provide a feedback message.\nExample: nova feedback This bot is amazing!", threadID, messageID);
     }
     try {
-      await api.sendMessage(
-        `📩 *Nova Feedback*\nFrom: ${senderID}\nThread: ${threadID}\n\nMessage:\n${feedbackMsg}`,
-        ADMIN_UID
-      );
+      await api.sendMessage(`📩 *Nova Feedback*\nFrom: ${senderID}\nThread: ${threadID}\n\nMessage:\n${feedbackMsg}`, ADMIN_UID);
       return api.sendMessage("✅ Your feedback has been sent to the admin. Thank you!", threadID, messageID);
     } catch (err) {
-      console.error("Nova Feedback Error:", err);
-      return api.sendMessage("❌ Failed to send feedback. Please try again later.", threadID, messageID);
+      return api.sendMessage("❌ Failed to send feedback. Try again later.", threadID, messageID);
     }
-  }
-
-  // Maintenance mode check (only admin can bypass)
-  if (MAINTENANCE_MODE && !isAdmin) {
-    return api.sendMessage("🚧 Nova AI is currently under maintenance.\nPlease try again later.", threadID, messageID);
   }
 
   const input = args.join(" ");
+  if (!input) {
+    return api.sendMessage("❌ Please provide a prompt or command.", threadID, messageID);
+  }
 
   // React to show processing
   api.setMessageReaction("⏳", messageID, () => {}, true);
 
-  // IMAGE MODE: Replying to an image
+  // IMAGE EDIT
   if (
     messageReply &&
     Array.isArray(messageReply.attachments) &&
     messageReply.attachments[0]?.type === "photo"
   ) {
-    const apiurl = "https://gemini-edit-omega.vercel.app/edit";
-    const params = {
-      prompt: input,
-      imgurl: messageReply.attachments[0].url
-    };
-
     try {
-      const res = await axios.get(apiurl, { params });
+      const res = await axios.get("https://gemini-edit-omega.vercel.app/edit", {
+        params: {
+          prompt: input,
+          imgurl: messageReply.attachments[0].url
+        }
+      });
 
-      if (!res.data || !res.data.images || !res.data.images[0]) {
+      if (!res.data?.images?.[0]) {
         api.setMessageReaction("❌", messageID, () => {}, true);
-        return api.sendMessage("❌ Failed to generate or edit image.", threadID, messageID);
+        return api.sendMessage("❌ Image edit failed.", threadID, messageID);
       }
 
-      const base64Image = res.data.images[0].replace(/^data:image\/\w+;base64,/, "");
-      const imageBuffer = Buffer.from(base64Image, "base64");
-
-      const cacheDir = path.join(__dirname, "cache");
-      fs.ensureDirSync(cacheDir);
-
-      const imagePath = path.join(cacheDir, `${Date.now()}_nova.png`);
-      fs.writeFileSync(imagePath, imageBuffer);
+      const imageBuffer = Buffer.from(res.data.images[0].replace(/^data:image\/\w+;base64,/, ""), "base64");
+      const cachePath = path.join(__dirname, "cache", `${Date.now()}_nova.png`);
+      fs.ensureDirSync(path.dirname(cachePath));
+      fs.writeFileSync(cachePath, imageBuffer);
 
       api.setMessageReaction("✅", messageID, () => {}, true);
-
-      return api.sendMessage({
-        attachment: fs.createReadStream(imagePath)
-      }, threadID, () => {
-        fs.unlinkSync(imagePath);
-      }, messageID);
-
+      return api.sendMessage({ attachment: fs.createReadStream(cachePath) }, threadID, () => fs.unlinkSync(cachePath), messageID);
     } catch (err) {
-      console.error("Nova Image Error:", err.response?.data || err.message);
+      console.error("Image Edit Error:", err.message);
       api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage("❌ Error generating/editing image. Try again later.", threadID, messageID);
+      return api.sendMessage("❌ Error editing image.", threadID, messageID);
     }
   }
 
-  // TEXT MODE: Regular Nova AI response
-  const tempMsg = await new Promise((resolve) => {
-    api.sendMessage("⏳ Contacting Nova AI...", threadID, (err, info) => {
-      resolve(info);
-    });
+  // TEXT MODE (Nova AI)
+  const tempMsg = await new Promise(resolve => {
+    api.sendMessage("⏳ Contacting Nova AI...", threadID, (err, info) => resolve(info));
   });
 
   try {
-    const { data } = await axios.get("https://arychauhann.onrender.com/api/gpt5", {
-      params: {
-        prompt: input,
-        uid: senderID,
-        reset: 'reset'
-      },
+    const { data } = await axios.get("https://daikyu-apizer-108.up.railway.app/api/openai-gpt-5", {
+      params: { ask: input, uid: senderID },
       timeout: 15000
     });
 
-    let text = data.response || data.answer || (typeof data === "string" ? data : JSON.stringify(data));
+    let replyText = typeof data.result === 'string' ? data.result : (typeof data === 'string' ? data : JSON.stringify(data));
+    replyText = replyText.replace(/\{.*?\}/gs, '').trim();
 
-    const formatted = text
+    const formatted = replyText
       .replace(/\*\*(.*?)\*\*/g, (_, t) => convertToBold(t))
       .replace(/##(.*?)##/g, (_, t) => convertToBold(t))
       .replace(/###\s*/g, '')
@@ -161,14 +155,10 @@ module.exports.run = async function({ api, event, args }) {
       .trim();
 
     const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
-
     return api.editMessage(`${opener}\n\n${formatted}`, tempMsg.messageID, threadID);
 
   } catch (err) {
-    console.error("Nova Text Error:", err);
-    const errMsg = err.code === 'ECONNABORTED'
-      ? "⚠️ Nova AI took too long to respond."
-      : "⚠️ Error while retrieving response from Nova AI.";
-    return api.editMessage(errMsg, tempMsg.messageID, threadID);
+    console.error("Nova AI Error:", err.message);
+    return api.editMessage("⚠️ Failed to get response from Nova AI. Try again later.", tempMsg.messageID, threadID);
   }
 };
