@@ -26,12 +26,12 @@ const responseOpeners = [
 
 module.exports.config = {
   name: 'aria1',
-  version: '3.0.0',
+  version: '3.1.0',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['aria', 'ariaai'],
-  description: "Ask Aria AI + Toggle Maintenance",
-  usages: "aria [prompt] | aria maint [on/off]",
+  description: "Ask Aria AI + Toggle Maintenance + Feedback",
+  usages: "aria [prompt] | aria maint [on/off] | aria feedback [message]",
   credits: 'LorexAi | Modified by ChatGPT Pro',
   cooldowns: 0
 };
@@ -40,7 +40,8 @@ module.exports.run = async function({ api, event, args }) {
   const uid = event.senderID;
   const threadID = event.threadID;
   const messageID = event.messageID;
-  const input = args.join(' ').trim().toLowerCase();
+  const inputRaw = args.join(' ').trim();
+  const input = inputRaw.toLowerCase();
 
   // 🧰 Admin Maintenance Toggle
   if (input.startsWith("maint")) {
@@ -65,7 +66,28 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("🚧 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗶𝘀 𝘂𝗻𝗱𝗲𝗿 𝗺𝗮𝗶𝗻𝘁𝗲𝗻𝗮𝗻𝗰𝗲.\nOnly the admin can use it right now.", threadID, messageID);
   }
 
-  if (!input) {
+  // 📝 Feedback feature
+  if (input.startsWith("feedback ")) {
+    const feedbackMsg = args.slice(1).join(' ').trim();
+    if (!feedbackMsg) {
+      return api.sendMessage("❗ Please provide feedback after the command. Example: `aria feedback I love this AI!`", threadID, messageID);
+    }
+
+    // Send feedback to admin user ID or group/thread ID
+    const feedbackThreadID = adminUID; // You can replace this with a group/thread ID if you want
+
+    const feedbackText = `📩 New Feedback from User (${uid}):\n${feedbackMsg}`;
+
+    try {
+      await api.sendMessage(feedbackText, feedbackThreadID);
+      return api.sendMessage("✅ Thank you for your feedback! Aria will use it to improve.", threadID, messageID);
+    } catch (error) {
+      console.error("Failed to send feedback:", error);
+      return api.sendMessage("❌ Sorry, I couldn't send your feedback. Please try again later.", threadID, messageID);
+    }
+  }
+
+  if (!inputRaw) {
     return api.sendMessage("❗𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝘆𝗶𝗼𝗻𝗴 𝘀𝗮𝗴𝗼𝘁. Example: `aria Anong ibig sabihin ng AI?`", threadID, messageID);
   }
 
@@ -74,8 +96,8 @@ module.exports.run = async function({ api, event, args }) {
   });
 
   try {
-    const { data } = await axios.get('https://daikyu-apizer-108.up.railway.app/api/aria-ai', {
-      params: { query: input, uid: uid }
+    const { data } = await axios.get('https://daikyu-apizer-108.up.railway.app/api/gpt-5', {
+      params: { ask: inputRaw, uid: uid }
     });
 
     const raw = data?.response;
