@@ -2,7 +2,6 @@ const axios = require('axios');
 
 const adminUID = "61580959514473";
 
-// Maintenance flag
 let isUnderMaintenance = false;
 
 module.exports.config = {
@@ -11,7 +10,7 @@ module.exports.config = {
   hasPermission: 0,
   usePrefix: false,
   aliases: ['manilanews', 'latestnews'],
-  description: "Fetch latest news about Manila",
+  description: "Get latest news about Manila",
   usages: "news | news maint [on/off]",
   credits: 'ChatGPT',
   cooldowns: 0
@@ -45,7 +44,6 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("🚧 News API is under maintenance. Admin only.", threadID, messageID);
   }
 
-  // Loading message
   const loading = await new Promise(resolve => {
     api.sendMessage("⏳ Fetching latest news about Manila...", threadID, (err, info) => resolve(info));
   });
@@ -66,7 +64,7 @@ module.exports.run = async function({ api, event, args }) {
 
     let message = "📰 Latest News About Manila:\n\n";
 
-    res.data.results.slice(0, 5).forEach((article, i) => {
+    res.data.results.slice(0, 2).forEach((article, i) => {
       message += `${i + 1}. ${article.title}\n`;
       if (article.description) message += `📝 ${article.description}\n`;
       if (article.link) message += `🔗 ${article.link}\n`;
