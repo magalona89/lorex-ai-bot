@@ -9,9 +9,9 @@ module.exports.config = {
   version: '1.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['manilanews', 'latestnews'],
-  description: "Get latest news about Manila",
-  usages: "news | news maint [on/off]",
+  aliases: ['latestnews', 'newstopic'],
+  description: "Get latest news about any topic",
+  usages: "news [topic] | news maint [on/off]",
   credits: 'ChatGPT',
   cooldowns: 0
 };
@@ -21,9 +21,8 @@ module.exports.run = async function({ api, event, args }) {
   const threadID = event.threadID;
   const messageID = event.messageID;
 
+  // If admin toggles maintenance mode
   const input = args.join(' ').trim().toLowerCase();
-
-  // Admin maintenance toggle
   if (input.startsWith("maint")) {
     if (uid !== adminUID) {
       return api.sendMessage("⛔ Only admin can toggle maintenance.", threadID, messageID);
@@ -44,8 +43,11 @@ module.exports.run = async function({ api, event, args }) {
     return api.sendMessage("🚧 News API is under maintenance. Admin only.", threadID, messageID);
   }
 
+  // Get the query topic (default to 'latest' if empty)
+  const query = args.length > 0 ? args.join(' ') : 'latest';
+
   const loading = await new Promise(resolve => {
-    api.sendMessage("⏳ Fetching latest news about Manila...", threadID, (err, info) => resolve(info));
+    api.sendMessage(`⏳ Fetching latest news about "${query}"...`, threadID, (err, info) => resolve(info));
   });
 
   try {
@@ -53,18 +55,18 @@ module.exports.run = async function({ api, event, args }) {
     const res = await axios.get('https://newsdata.io/api/1/latest', {
       params: {
         apikey: API_KEY,
-        q: 'manila',
+        q: query,
         country: 'ph',
       }
     });
 
     if (!res.data?.results || res.data.results.length === 0) {
-      return api.editMessage("⚠️ No news found for Manila.", loading.messageID, threadID);
+      return api.editMessage(`⚠️ No news found for "${query}".`, loading.messageID, threadID);
     }
 
-    let message = "📰 Latest News About Manila:\n\n";
+    let message = `📰 Latest News About "${query}":\n\n`;
 
-    res.data.results.slice(0, 2).forEach((article, i) => {
+    res.data.results.slice(0, 3).forEach((article, i) => {
       message += `${i + 1}. ${article.title}\n`;
       if (article.description) message += `📝 ${article.description}\n`;
       if (article.link) message += `🔗 ${article.link}\n`;
