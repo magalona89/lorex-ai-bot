@@ -1,4 +1,7 @@
 const axios = require('axios');
+const { getStatus } = require('./aria-maintenance'); // Shared maintenance state
+
+const adminUID = "61580959514473";
 
 function convertToBold(text) {
   const boldMap = {
@@ -12,44 +15,52 @@ function convertToBold(text) {
   return text.split('').map(char => boldMap[char] || char).join('');
 }
 
-const responseOpeners = ["𝗔𝗿𝗶𝗮 𝗔𝗜"];
+const responseOpeners = [
+  "🤖 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗥𝗲𝘀𝗽𝗼𝗻𝗱𝘀",
+  "💡 𝗔𝗿𝗶𝗮 𝗧𝗵𝗶𝗻𝗸𝘀",
+  "✨ 𝗙𝗿𝗼𝗺 𝗔𝗿𝗶𝗮'𝘀 𝗠𝗶𝗻𝗱",
+  "📡 𝗔𝗿𝗶𝗮 𝗦𝗮𝘆𝘀"
+];
 
 module.exports.config = {
   name: 'aria1',
-  version: '1.1.1',
+  version: '2.0.0',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['aria', 'ariaai'],
-  description: "Aria AI via new API",
-  usages: "ai2 [prompt]",
-  credits: 'LorexAi',
+  description: "Ask Aria AI (with Maintenance Check)",
+  usages: "aria [prompt]",
+  credits: 'LorexAi | Modified by ChatGPT Pro',
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
-  const prompt = args.join(' ');
   const uid = event.senderID;
   const threadID = event.threadID;
   const messageID = event.messageID;
+  const prompt = args.join(' ').trim();
 
-  if (!prompt) return api.sendMessage("❗Pakilagay ng iyong sagot.", threadID, messageID);
+  // Check maintenance mode
+  if (getStatus() && uid !== adminUID) {
+    return api.sendMessage("🚧 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗶𝘀 𝘂𝗻𝗱𝗲𝗿 𝗺𝗮𝗶𝗻𝘁𝗲𝗻𝗮𝗻𝗰𝗲.\nOnly the admin can use it right now.", threadID, messageID);
+  }
+
+  if (!prompt) {
+    return api.sendMessage("❗𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝘆𝗶𝗼𝗻𝗴 𝘀𝗮𝗴𝗼𝘁. Example: `aria Anong ibig sabihin ng AI?`", threadID, messageID);
+  }
 
   const loadingMsg = await new Promise(resolve => {
-    api.sendMessage("🚀Generating Aria Ai..", threadID, (err, info) => resolve(info));
+    api.sendMessage("⏳ 𝗔𝘀𝗸𝗶𝗻𝗴 𝗔𝗿𝗶𝗮...", threadID, (err, info) => resolve(info));
   });
 
   try {
-    const { data } = await axios.get('https://betadash-api-swordslush-production.up.railway.app/Aria', {
-      params: {
-        ask: prompt,
-        userid: uid,
-        stream: false
-      }
+    const { data } = await axios.get('https://daikyu-apizer-108.up.railway.app/api/aria-ai', {
+      params: { query: prompt, uid: uid }
     });
 
     const raw = data?.response;
     if (!raw) {
-      return api.editMessage("⚠️ No response received from Aria API.", loadingMsg.messageID, threadID);
+      return api.editMessage("⚠️ 𝗡𝗼 𝗿𝗲𝘀𝗽𝗼𝗻𝘀𝗲 𝗿𝗲𝗰𝗲𝗶𝘃𝗲𝗱 𝗳𝗿𝗼𝗺 𝗔𝗿𝗶𝗮 API.", loadingMsg.messageID, threadID);
     }
 
     const formatted = raw
@@ -63,6 +74,6 @@ module.exports.run = async function({ api, event, args }) {
 
   } catch (error) {
     console.error(error);
-    return api.editMessage("❌ Error while contacting Aria API.", loadingMsg.messageID, threadID);
+    return api.editMessage("❌ 𝗘𝗿𝗿𝗼𝗿 𝗰𝗼𝗻𝘁𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝗿𝗶𝗮 𝗔𝗣𝗜.", loadingMsg.messageID, threadID);
   }
 };
