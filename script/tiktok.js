@@ -1,65 +1,50 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
+const axios = require('axios');
 
 module.exports.config = {
   name: "ariavideo",
-  version: "1.3",
+  version: "1.0.0",
   hasPermission: 0,
   usePrefix: false,
-  aliases: ["ariavideo", "tiktoksearch", "ariatiktok"],
-  description: "Search and send a random TikTok video from a keyword",
-  usages: "ariavideo [keyword]",
-  credits: "Aria Ai",
-  cooldowns: 3
+  aliases: [],
+  description: "Maghanap ng TikTok video gamit ang keyword",
+  usages: "tiktok [keyword]",
+  credits: "Rynxzei | Modified by ChatGPT",
+  cooldowns: 0
 };
 
-module.exports.run = async function ({ api, event, args }) {
-  const { threadID, messageID } = event;
-  const query = args.join(" ").trim() || "Shoti";
-  const apiUrl = `https://kaiz-apis.gleeze.com/api/tiksearch?search=${encodeURIComponent(query)}&apikey=66c17057-c78d-4d81-8581-eaf6d997f7`;
+module.exports.run = async function({ api, event, args }) {
+  const threadID = event.threadID;
+  const messageID = event.messageID;
+  const query = args.join(" ").trim();
 
-  // React to show processing
-  api.setMessageReaction("🔁", messageID, () => {}, true);
+  if (!query) {
+    return api.sendMessage("❗𝗠𝗮𝗴𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝘀𝗲𝗮𝗿𝗰𝗵 𝗸𝗲𝘆𝘄𝗼𝗿𝗱. Example: `ariavideo funny cat`", threadID, messageID);
+  }
 
-  setTimeout(() => {
-    api.setMessageReaction("", messageID, () => {}, true);
-  }, 5000);
+  const loading = await new Promise(resolve => {
+    api.sendMessage("⏳ 𝗦𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴 𝗧𝗶𝗸𝗧𝗼𝗸...", threadID, (err, info) => resolve(info));
+  });
 
   try {
-    const res = await axios.get(apiUrl);
-    const videos = res.data?.data?.videos;
+    const res = await axios.get(`https://api-rynxzei.onrender.com/api/tiktok?query=${encodeURIComponent(query)}`);
+    const data = res.data;
 
-    if (!Array.isArray(videos) || videos.length === 0) {
-      return api.sendMessage("⛔ No TikTok videos found for that keyword.", threadID, messageID);
+    if (!data || !data.result) {
+      return api.editMessage("❌ Walang nahanap na resulta para sa iyong query.", loading.messageID, threadID);
     }
 
-    // Pick random video
-    const video = videos[Math.floor(Math.random() * videos.length)];
+    const { result } = data;
 
-    // Create cache folder and file path
-    const filePath = path.join(__dirname, "cache", `tiktok_${Date.now()}.mp4`);
-    fs.ensureDirSync(path.dirname(filePath));
+    let msg = `🎯 𝗧𝗶𝗸𝗧𝗼𝗸 𝗦𝗲𝗮𝗿𝗰𝗵 𝗥𝗲𝘀𝘂𝗹𝘁:\n`;
+    if (result.title) msg += `📌 Title: ${result.title}\n`;
+    if (result.author) msg += `👤 Author: ${result.author}\n`;
+    if (result.url) msg += `🔗 Link: ${result.url}\n`;
+    if (result.description) msg += `📝 Description: ${result.description}\n`;
 
-    const videoStream = await axios.get(video.play, { responseType: "stream" });
-
-    // Save to file
-    const writer = fs.createWriteStream(filePath);
-    videoStream.data.pipe(writer);
-
-    await new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
-
-    // Send video
-    api.sendMessage({
-      body: `💾 Aria TikTok\n🎞 ${video.title}\n👤 Author: ${video.author?.nickname || "Unknown"}\n🎶 Music: ${video.music_info?.title || "Unknown"}`,
-      attachment: fs.createReadStream(filePath)
-    }, threadID, () => fs.unlinkSync(filePath), messageID);
+    return api.editMessage(msg, loading.messageID, threadID);
 
   } catch (err) {
-    console.error(err);
-    api.sendMessage("🚫 Error while fetching TikTok video. Try again later.", threadID, messageID);
+    console.error("❌ TikTok API Error:", err);
+    return api.editMessage("⚠️ Nagkaroon ng error sa pagkuha ng TikTok data.", loading.messageID, threadID);
   }
 };
