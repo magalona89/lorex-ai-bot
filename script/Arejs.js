@@ -1,7 +1,9 @@
 const axios = require('axios');
-const { getStatus } = require('./aria-maintenance'); // Shared maintenance state
 
 const adminUID = "61580959514473";
+
+// ⛔ Internal maintenance state
+let isUnderMaintenance = false;
 
 function convertToBold(text) {
   const boldMap = {
@@ -24,12 +26,12 @@ const responseOpeners = [
 
 module.exports.config = {
   name: 'aria1',
-  version: '2.0.0',
+  version: '3.0.0',
   hasPermission: 0,
   usePrefix: false,
   aliases: ['aria', 'ariaai'],
-  description: "Ask Aria AI (with Maintenance Check)",
-  usages: "aria [prompt]",
+  description: "Ask Aria AI + Toggle Maintenance",
+  usages: "aria [prompt] | aria maint [on/off]",
   credits: 'LorexAi | Modified by ChatGPT Pro',
   cooldowns: 0
 };
@@ -38,14 +40,32 @@ module.exports.run = async function({ api, event, args }) {
   const uid = event.senderID;
   const threadID = event.threadID;
   const messageID = event.messageID;
-  const prompt = args.join(' ').trim();
+  const input = args.join(' ').trim().toLowerCase();
 
-  // Check maintenance mode
-  if (getStatus() && uid !== adminUID) {
+  // 🧰 Admin Maintenance Toggle
+  if (input.startsWith("maint")) {
+    if (uid !== adminUID) {
+      return api.sendMessage("⛔ Only the admin can toggle maintenance mode.", threadID, messageID);
+    }
+
+    const toggleArg = args[1]?.toLowerCase();
+    if (toggleArg === "on") {
+      isUnderMaintenance = true;
+      return api.sendMessage("🔧 Maintenance mode is now ON.", threadID, messageID);
+    } else if (toggleArg === "off") {
+      isUnderMaintenance = false;
+      return api.sendMessage("✅ Maintenance mode is now OFF.", threadID, messageID);
+    } else {
+      return api.sendMessage("⚙️ Usage: `aria maint on` or `aria maint off`", threadID, messageID);
+    }
+  }
+
+  // 🚧 Check maintenance mode for normal users
+  if (isUnderMaintenance && uid !== adminUID) {
     return api.sendMessage("🚧 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗶𝘀 𝘂𝗻𝗱𝗲𝗿 𝗺𝗮𝗶𝗻𝘁𝗲𝗻𝗮𝗻𝗰𝗲.\nOnly the admin can use it right now.", threadID, messageID);
   }
 
-  if (!prompt) {
+  if (!input) {
     return api.sendMessage("❗𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝘆𝗶𝗼𝗻𝗴 𝘀𝗮𝗴𝗼𝘁. Example: `aria Anong ibig sabihin ng AI?`", threadID, messageID);
   }
 
@@ -55,7 +75,7 @@ module.exports.run = async function({ api, event, args }) {
 
   try {
     const { data } = await axios.get('https://daikyu-apizer-108.up.railway.app/api/aria-ai', {
-      params: { query: prompt, uid: uid }
+      params: { query: input, uid: uid }
     });
 
     const raw = data?.response;
