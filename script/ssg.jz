@@ -1,0 +1,128 @@
+const axios = require('axios');
+const Jimp = require('jimp');
+const { exec } = require('child_process');
+const { tmpdir } = require('os');
+const { join } = require('path');
+const { writeFileSync, createReadStream, existsSync } = require('fs');
+const { get } = require('https');
+const fs = require('fs');
+
+module.exports.config = {
+  name: 'epicvideo',
+  version: '1.0.0',
+  hasPermission: 0,
+  usePrefix: false,
+  aliases: ['earthvideo', 'nasaearth'],
+  description: "Create a timelapse video of today's Earth from NASA EPIC",
+  usages: "epicvideo",
+  credits: 'NASA + Aria Ai + LorexAi',
+  cooldowns: 0,
+};
+
+// Format PH date string
+function getPHDate() {
+  const phDate = new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+  });
+  const today = new Date(phDate);
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return { yyyy, mm, dd };
+}
+
+// Download image from NASA
+async function downloadImage(url, index) {
+  const filePath = join(tmpdir(), `epic_${index.toString().padStart(3, '0')}.jpg`);
+  return new Promise((resolve, reject) => {
+    get(url, (res) => {
+      const data = [];
+      res.on('data', (chunk) => data.push(chunk));
+      res.on('end', () => {
+        writeFileSync(filePath, Buffer.concat(data));
+        resolve(filePath);
+      });
+    }).on('error', reject);
+  });
+}
+
+// Add watermark to each image
+async function addWatermark(inputPath) {
+  const image = await Jimp.read(inputPath);
+  const font = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+  image.print(
+    font,
+    10,
+    image.getHeight() - 30,
+    {
+      text: '🌐 Powered by Aria Ai',
+    },
+    image.getWidth(),
+    image.getHeight()
+  );
+  await image.writeAsync(inputPath);
+}
+
+module.exports.run = async function ({ api, event }) {
+  const { threadID, messageID } = event;
+  const loadingMsg = await new Promise((resolve) => {
+    api.sendMessage(`📡 Creating today's Earth timelapse video...`, threadID, (err, info) =>
+      resolve(info)
+    );
+  });
+
+  const { yyyy, mm, dd } = getPHDate();
+  const dateInput = `${yyyy}-${mm}-${dd}`;
+
+  try {
+    const apiUrl = `https://epic.gsfc.nasa.gov/api/natural/date/${dateInput}`;
+    const res = await axios.get(apiUrl);
+    const images = res.data;
+
+    if (!images || images.length === 0) {
+      return api.editMessage(`❌ No NASA EPIC images found for ${dateInput}.`, loadingMsg.messageID, threadID);
+    }
+
+    const paths = [];
+
+    // Step 1: Download and watermark each image
+    for (let i = 0; i < images.length; i++) {
+      const name = images[i].image + '.jpg';
+      const url = `https://epic.gsfc.nasa.gov/archive/natural/${yyyy}/${mm}/${dd}/jpg/${name}`;
+      const path = await downloadImage(url, i);
+      await addWatermark(path);
+      paths.push(path);
+    }
+
+    // Step 2: Create video using ffmpeg
+    const inputPattern = join(tmpdir(), 'epic_%03d.jpg');
+    const outputPath = join(tmpdir(), `epic_timelapse_${Date.now()}.mp4`);
+
+    await new Promise((resolve, reject) => {
+      exec(
+        `ffmpeg -y -r 2 -f image2 -i "${inputPattern}" -vcodec libx264 -crf 25 -pix_fmt yuv420p "${outputPath}"`,
+        (err, stdout, stderr) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(outputPath);
+          }
+        }
+      );
+    });
+
+    // Step 3: Send video
+    await api.sendMessage(
+      {
+        body: `🌍 𝗡𝗔𝗦𝗔 𝗘𝗣𝗜𝗖 𝗧𝗶𝗺𝗲𝗹𝗮𝗽𝘀𝗲 𝗼𝗳 𝗘𝗮𝗿𝘁𝗵\n🗓 ${dateInput} (PH Time)\n🌐 Powered by Aria Ai\n🔗 https://epic.gsfc.nasa.gov/`,
+        attachment: createReadStream(outputPath),
+      },
+      threadID
+    );
+
+    await api.unsendMessage(loadingMsg.messageID);
+  } catch (err) {
+    console.error(err);
+    return api.editMessage(`❌ Error creating video: ${err.message}`, loadingMsg.messageID, threadID);
+  }
+};
