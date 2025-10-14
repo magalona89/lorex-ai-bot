@@ -1,82 +1,136 @@
 const axios = require('axios');
-
-const adminUID = "61580959514473";
-
-let isUnderMaintenance = false;
+const { createReadStream } = require('fs');
+const { get } = require('https');
+const { tmpdir } = require('os');
+const { join } = require('path');
+const { writeFileSync } = require('fs');
 
 module.exports.config = {
-  name: 'vpn',
-  version: '1.0.0',
+  name: 'nas',
+  version: '1.0.3',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['convertbng', 'bngtolatlong'],
-  description: "Convert BNG coordinates to latitude and longitude",
-  usages: "bng2latlong [eastings] [northings] | bng2latlong maint [on/off]",
-  credits: 'ChatGPT',
-  cooldowns: 0
+  aliases: ['earthpic', 'nasaepic'],
+  description: "Auto-send NASA EPIC Earth images with photo attachments",
+  usages: "epic [YYYY-MM-DD]",
+  credits: 'NASA EPIC + LorexAi',
+  cooldowns: 0,
 };
 
-module.exports.run = async function({ api, event, args }) {
-  const uid = event.senderID;
-  const threadID = event.threadID;
-  const messageID = event.messageID;
+// Helper: Format date to readable text
+function formatDateText(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
-  const input = args.join(' ').trim().toLowerCase();
+// Helper: Download image stream from URL
+global.utils = global.utils || {};
+global.utils.getStreamFromURL = async function (url) {
+  const filePath = join(tmpdir(), Date.now() + '.jpg');
+  const writer = writeFileSync;
 
-  // Admin maintenance toggle
-  if (input.startsWith("maint")) {
-    if (uid !== adminUID) {
-      return api.sendMessage("⛔ Only admin can toggle maintenance.", threadID, messageID);
+  return new Promise((resolve, reject) => {
+    get(url, (res) => {
+      const data = [];
+
+      res.on('data', (chunk) => data.push(chunk));
+      res.on('end', () => {
+        writer(filePath, Buffer.concat(data));
+        resolve(createReadStream(filePath));
+      });
+    }).on('error', reject);
+  });
+};
+
+module.exports.run = async function ({ api, event, args }) {
+  const { threadID, messageID } = event;
+  let dateInput = args[0];
+
+  // If no date, get latest date
+  async function fetchLatestDate() {
+    try {
+      const res = await axios.get('https://epic.gsfc.nasa.gov/api/natural');
+      if (res.data && res.data.length > 0) {
+        return res.data[0].date.split(' ')[0];
+      }
+      return null;
+    } catch {
+      return null;
     }
-    const toggle = args[1]?.toLowerCase();
-    if (toggle === "on") {
-      isUnderMaintenance = true;
-      return api.sendMessage("🔧 Maintenance mode ON.", threadID, messageID);
-    } else if (toggle === "off") {
-      isUnderMaintenance = false;
-      return api.sendMessage("✅ Maintenance mode OFF.", threadID, messageID);
-    } else {
-      return api.sendMessage("⚙️ Usage: `bng2latlong maint on` or `bng2latlong maint off`", threadID, messageID);
+  }
+
+  if (!dateInput) {
+    dateInput = await fetchLatestDate();
+    if (!dateInput) {
+      return api.sendMessage(
+        "❌ Failed to get latest EPIC date. Please provide a date (YYYY-MM-DD).",
+        threadID,
+        messageID
+      );
     }
   }
 
-  if (isUnderMaintenance && uid !== adminUID) {
-    return api.sendMessage("🚧 API is under maintenance. Admin only.", threadID, messageID);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return api.sendMessage(
+      "❌ Invalid date format. Use `epic 2023-10-10`.",
+      threadID,
+      messageID
+    );
   }
 
-  if (args.length < 2) {
-    return api.sendMessage("⚠️ Please provide both Eastings and Northings.\nUsage: bng2latlong [eastings] [northings]", threadID, messageID);
-  }
-
-  const eastings = args[0];
-  const northings = args[1];
-
-  const loading = await new Promise(resolve => {
-    api.sendMessage(`⏳ Converting BNG (${eastings}, ${northings}) to latitude and longitude...`, threadID, (err, info) => resolve(info));
+  // Loading message
+  const loadingMsg = await new Promise((resolve) => {
+    api.sendMessage(`📡 Fetching NASA EPIC images for ${dateInput}...`, threadID, (err, info) =>
+      resolve(info)
+    );
   });
 
   try {
-    const url = `https://api.getthedata.com/bng2latlong/${eastings}/${northings}`;
-
+    const url = `https://epic.gsfc.nasa.gov/api/natural/date/${dateInput}`;
     const res = await axios.get(url);
+    const images = res.data;
 
-    if (!res.data || !res.data.data) {
-      return api.editMessage("⚠️ No data received from API.", loading.messageID, threadID);
+    if (!images || images.length === 0) {
+      return api.editMessage(
+        `❌ No EPIC images found on ${dateInput}.`,
+        loadingMsg.messageID,
+        threadID
+      );
     }
 
-    const { lat, long } = res.data.data;
+    const [year, month, day] = dateInput.split('-');
 
-    const message = 
-      `📍 Conversion Result:\n` +
-      `Eastings: ${eastings}\n` +
-      `Northings: ${northings}\n\n` +
-      `Latitude: ${lat}\n` +
-      `Longitude: ${long}`;
+    for (const item of images) {
+      const imageName = item.image + '.jpg';
+      const imageUrl = `https://epic.gsfc.nasa.gov/archive/natural/${year}/${month}/${day}/jpg/${imageName}`;
 
-    return api.editMessage(message, loading.messageID, threadID);
+      const caption =
+`🌍 𝗘𝗮𝗿𝘁𝗵 𝗙𝗿𝗼𝗺 𝗡𝗔𝗦𝗔 𝗘𝗣𝗜𝗖
+📸 𝗜𝗺𝗮𝗴𝗲: ${item.image}
+🗓 𝗗𝗮𝘁𝗲: ${formatDateText(item.date)}
+📝 ${item.caption}
+📍 Lat: ${item.centroid_coordinates.lat}°, Lon: ${item.centroid_coordinates.lon}°`;
 
+      await api.sendMessage(
+        {
+          body: caption,
+          attachment: await global.utils.getStreamFromURL(imageUrl),
+        },
+        threadID
+      );
+    }
+
+    await api.unsendMessage(loadingMsg.messageID);
   } catch (error) {
-    console.error("BNG to LatLong API error:", error.message);
-    return api.editMessage("❌ Failed to convert coordinates.", loading.messageID, threadID);
+    console.error('❌ Error:', error.message || error);
+    return api.editMessage(
+      "❌ Error retrieving or sending EPIC data. Please try again later.",
+      loadingMsg.messageID,
+      threadID
+    );
   }
 };
