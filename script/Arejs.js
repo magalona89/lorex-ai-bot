@@ -1,9 +1,22 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
-const adminUID = "61580959514473";
+const CONFIG_FILE = path.join(__dirname, 'gemini_config.json');
 
-// ⛔ Internal maintenance state
-let isUnderMaintenance = false;
+// Load or initialize config
+function loadConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ maintenance: false, admins: [] }, null, 2));
+  }
+  return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+}
+
+function saveConfig(config) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+/* ----------------------------- Helper Functions ---------------------------- */
 
 function convertToBold(text) {
   const boldMap = {
@@ -13,96 +26,87 @@ function convertToBold(text) {
     'A': '𝗔','B': '𝗕','C': '𝗖','D': '𝗗','E': '𝗘','F': '𝗙','G': '𝗚','H': '𝗛','I': '𝗜','J': '𝗝',
     'K': '𝗞','L': '𝗟','M': '𝗠','N': '𝗡','O': '𝗢','P': '𝗣','Q': '𝗤','R': '𝗥','S': '𝗦','T': '𝗧',
     'U': '𝗨','V': '𝗩','W': '𝗪','X': '𝗫','Y': '𝗬','Z': '𝗭',
+    '0': '𝟬','1': '𝟭','2': '𝟮','3': '𝟯','4': '𝟰','5': '𝟱','6': '𝟲','7': '𝟳','8': '𝟴','9': '𝟵',
   };
-  return text.split('').map(char => boldMap[char] || char).join('');
+  return text.split('').map(c => boldMap[c] || c).join('');
 }
 
-const responseOpeners = [
-  "🤖 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗥𝗲𝘀𝗽𝗼𝗻𝗱𝘀",
-  "💡 𝗔𝗿𝗶𝗮 𝗧𝗵𝗶𝗻𝗸𝘀",
-  "✨ 𝗙𝗿𝗼𝗺 𝗔𝗿𝗶𝗮'𝘀 𝗠𝗶𝗻𝗱",
-  "📡 𝗔𝗿𝗶𝗮 𝗦𝗮𝘆𝘀"
-];
+function splitMessage(text, maxLength = 1800) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let chunk = '';
+
+  for (const line of lines) {
+    if ((chunk + '\n' + line).length > maxLength) {
+      chunks.push(chunk);
+      chunk = line;
+    } else {
+      chunk += (chunk ? '\n' : '') + line;
+    }
+  }
+  if (chunk) chunks.push(chunk);
+  return chunks;
+}
+
+/* ------------------------------ Command Config ----------------------------- */
 
 module.exports.config = {
   name: 'aria1',
-  version: '3.1.0',
+  version: '3.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['aria', 'ariaai'],
-  description: "Ask Aria AI + Toggle Maintenance + Feedback",
-  usages: "aria [prompt] | aria maint [on/off] | aria feedback [message]",
-  credits: 'LorexAi | Modified by ChatGPT Pro',
+  aliases: ['gem', 'gem-ai', 'geminichat'],
+  description: "Chat with Gemini AI (Pro + Maintenance Mode)",
+  usages: "gemini [message] | gemini on/off (admin)",
+  credits: "Enhanced by ChatGPT ✨",
   cooldowns: 0
 };
 
-module.exports.run = async function({ api, event, args }) {
-  const uid = event.senderID;
+/* ------------------------------ Main Function ------------------------------ */
+
+module.exports.run = async function({ api, event, args, Users }) {
   const threadID = event.threadID;
   const messageID = event.messageID;
-  const inputRaw = args.join(' ').trim();
-  const input = inputRaw.toLowerCase();
+  const senderID = event.senderID;
 
-  // 🧰 Admin Maintenance Toggle
-  if (input.startsWith("maint")) {
-    if (uid !== adminUID) {
-      return api.sendMessage("⛔ Only the admin can toggle maintenance mode.", threadID, messageID);
-    }
+  const config = loadConfig();
+  const admins = config.admins.length ? config.admins : [senderID]; // default first sender as admin
 
-    const toggleArg = args[1]?.toLowerCase();
-    if (toggleArg === "on") {
-      isUnderMaintenance = true;
-      return api.sendMessage("🔧 Maintenance mode is now ON.", threadID, messageID);
-    } else if (toggleArg === "off") {
-      isUnderMaintenance = false;
-      return api.sendMessage("✅ Maintenance mode is now OFF.", threadID, messageID);
-    } else {
-      return api.sendMessage("⚙️ Usage: `aria maint on` or `aria maint off`", threadID, messageID);
+  // ------------------ Admin Commands ------------------
+  const command = args[0]?.toLowerCase();
+  if (['on', 'off'].includes(command)) {
+    if (!admins.includes(senderID)) {
+      return api.sendMessage("❌ Hindi ka authorized na mag-toggle ng Gemini maintenance.", threadID, messageID);
     }
+    config.maintenance = command === 'off' ? false : true;
+    saveConfig(config);
+    return api.sendMessage(`✅ Gemini maintenance mode ay **${config.maintenance ? 'ON' : 'OFF'}**.`, threadID, messageID);
   }
 
-  // 🚧 Check maintenance mode for normal users
-  if (isUnderMaintenance && uid !== adminUID) {
-    return api.sendMessage("🚧 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗶𝘀 𝘂𝗻𝗱𝗲𝗿 𝗺𝗮𝗶𝗻𝘁𝗲𝗻𝗮𝗻𝗰𝗲.\nOnly the admin can use it right now.", threadID, messageID);
+  // ------------------ Maintenance Mode Check ------------------
+  if (config.maintenance && !admins.includes(senderID)) {
+    return api.sendMessage("⚠️ 𝗔𝗿𝗶𝗮 𝗔𝗶 ay kasalukuyang nasa maintenance mode.  ⏩dont forget to ask "aria.", threadID, messageID);
   }
 
-  // 📝 Feedback feature
-  if (input.startsWith("feedback ")) {
-    const feedbackMsg = args.slice(1).join(' ').trim();
-    if (!feedbackMsg) {
-      return api.sendMessage("❗ Please provide feedback after the command. Example: `aria feedback I love this AI!`", threadID, messageID);
-    }
-
-    // Send feedback to admin user ID or group/thread ID
-    const feedbackThreadID = adminUID; // You can replace this with a group/thread ID if you want
-
-    const feedbackText = `📩 New Feedback from User (${uid}):\n${feedbackMsg}`;
-
-    try {
-      await api.sendMessage(feedbackText, feedbackThreadID);
-      return api.sendMessage("✅ Thank you for your feedback! Aria will use it to improve.", threadID, messageID);
-    } catch (error) {
-      console.error("Failed to send feedback:", error);
-      return api.sendMessage("❌ Sorry, I couldn't send your feedback. Please try again later.", threadID, messageID);
-    }
+  // ------------------ Gemini AI Processing ------------------
+  const ask = args.join(' ').trim();
+  const imageUrl = event.messageReply?.attachments?.[0]?.url || '';
+  if (!ask && !imageUrl) {
+    return api.sendMessage("💬 Pakitype ang tanong o mag-reply sa larawan para tanungin si 𝗔𝗿𝗶𝗮.", threadID, messageID);
   }
 
-  if (!inputRaw) {
-    return api.sendMessage("❗𝗣𝗮𝗸𝗶𝗹𝗮𝗴𝗮𝘆 𝗻𝗴 𝘆𝗶𝗼𝗻𝗴 𝘀𝗮𝗴𝗼𝘁. Example: `aria Anong ibig sabihin ng AI?`", threadID, messageID);
-  }
-
-  const loadingMsg = await new Promise(resolve => {
-    api.sendMessage("⏳ 𝗔𝘀𝗸𝗶𝗻𝗴 𝗔𝗿𝗶𝗮...", threadID, (err, info) => resolve(info));
+  const thinkingMsg = await new Promise(resolve => {
+    api.sendMessage("🔄 𝗔𝗿𝗶𝗮 𝗔𝗶 is analyzing your request...", threadID, (err, info) => resolve(info));
   });
 
   try {
-    const { data } = await axios.get('https://daikyu-apizer-108.up.railway.app/api/gpt-5', {
-      params: { ask: inputRaw, uid: uid }
-    });
+    const url = `https://gemini-web-api.onrender.com/gemini?ask=${encodeURIComponent(ask)}&uid=${senderID}&image_url=${encodeURIComponent(imageUrl || '')}`;
+    const response = await axios.get(url, { timeout: 25000 });
+    let raw = response.data?.response || response.data?.reply || response.data || '';
 
-    const raw = data?.response;
-    if (!raw) {
-      return api.editMessage("⚠️ 𝗡𝗼 𝗿𝗲𝘀𝗽𝗼𝗻𝘀𝗲 𝗿𝗲𝗰𝗲𝗶𝘃𝗲𝗱 𝗳𝗿𝗼𝗺 𝗔𝗿𝗶𝗮 API.", loadingMsg.messageID, threadID);
+    if (!raw.trim()) {
+      await api.unsendMessage(thinkingMsg.messageID);
+      return api.sendMessage("⛔ Walang valid na sagot mula sa Gemini API.", threadID);
     }
 
     const formatted = raw
@@ -111,11 +115,27 @@ module.exports.run = async function({ api, event, args }) {
       .replace(/###\s*/g, '')
       .replace(/\n{3,}/g, '\n\n');
 
-    const opener = responseOpeners[Math.floor(Math.random() * responseOpeners.length)];
-    return api.editMessage(`${opener}\n\n${formatted}`, loadingMsg.messageID, threadID);
+    await api.unsendMessage(thinkingMsg.messageID);
+
+    const header = imageUrl 
+      ? "📸 𝗔𝗿𝗶𝗮 𝗔𝗶 (Image Analysis)"
+      : "🤖 𝗔𝗿𝗶𝗮 𝗔𝗶";
+
+    const fullReply = `${header}\n\n${formatted}`;
+    const chunks = splitMessage(fullReply);
+
+    for (const chunk of chunks) {
+      await api.sendMessage(chunk, threadID);
+    }
 
   } catch (error) {
-    console.error(error);
-    return api.editMessage("❌ 𝗘𝗿𝗿𝗼𝗿 𝗰𝗼𝗻𝘁𝗮𝗰𝘁𝗶𝗻𝗴 𝗔𝗿𝗶𝗮 𝗔𝗣𝗜.", loadingMsg.messageID, threadID);
+    console.error(`[GEMINI PRO ERROR - ${senderID}]:`, error.response?.data || error.message);
+
+    await api.unsendMessage(thinkingMsg.messageID);
+    const msg = (error.code === 'ECONNABORTED')
+      ? "⌛ Lumagpas sa oras ang koneksyon. Subukan muli mamaya."
+      : "❌ Nagkaroon ng error habang kumakausap kay 𝗔𝗿𝗶𝗮. Pakisubukan ulit.";
+      
+    return api.sendMessage(msg, threadID);
   }
 };
