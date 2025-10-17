@@ -51,7 +51,7 @@ function splitMessage(text, maxLength = 1800) {
 /* ------------------------------ Command Config ----------------------------- */
 
 module.exports.config = {
-  name: 'nika',
+  name: 'ai',
   version: '3.0.0',
   hasPermission: 0,
   usePrefix: false,
@@ -88,7 +88,7 @@ module.exports.run = async function({ api, event, args, Users }) {
     return api.sendMessage("⚠️ Gemini ay kasalukuyang nasa maintenance mode. Tanging admin lang ang makakagamit.", threadID, messageID);
   }
 
-  // ------------------ Gemini AI Processing ------------------
+  // ------------------ GPT-5 API Processing ------------------
   const ask = args.join(' ').trim();
   const imageUrl = event.messageReply?.attachments?.[0]?.url || '';
   if (!ask && !imageUrl) {
@@ -96,17 +96,17 @@ module.exports.run = async function({ api, event, args, Users }) {
   }
 
   const thinkingMsg = await new Promise(resolve => {
-    api.sendMessage("🤔 Gemini AI is analyzing your request...", threadID, (err, info) => resolve(info));
+    api.sendMessage("🤔 GPT-5 is analyzing your request...", threadID, (err, info) => resolve(info));
   });
 
   try {
-    const url = `https://gemini-web-api.onrender.com/gemini?ask=${encodeURIComponent(ask)}&uid=${senderID}&image_url=${encodeURIComponent(imageUrl || '')}`;
+    const url = `https://arychauhann.onrender.com/api/gpt5?prompt=${encodeURIComponent(ask)}&uid=${senderID}${imageUrl ? `&image_url=${encodeURIComponent(imageUrl)}` : ''}`;
     const response = await axios.get(url, { timeout: 25000 });
     let raw = response.data?.response || response.data?.reply || response.data || '';
 
     if (!raw.trim()) {
       await api.unsendMessage(thinkingMsg.messageID);
-      return api.sendMessage("⚠️ Walang valid na sagot mula sa Gemini API.", threadID);
+      return api.sendMessage("⚠️ Walang valid na sagot mula sa GPT-5 API.", threadID);
     }
 
     const formatted = raw
@@ -118,8 +118,8 @@ module.exports.run = async function({ api, event, args, Users }) {
     await api.unsendMessage(thinkingMsg.messageID);
 
     const header = imageUrl 
-      ? "🖼️ 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 (Image Analysis)"
-      : "🤖 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄";
+      ? "🖼️ 𝙂𝙋𝙏-𝟱 (Image Analysis)"
+      : "🤖 𝙂𝙋𝙏-𝟱";
 
     const fullReply = `${header}\n\n${formatted}`;
     const chunks = splitMessage(fullReply);
@@ -129,12 +129,12 @@ module.exports.run = async function({ api, event, args, Users }) {
     }
 
   } catch (error) {
-    console.error(`[GEMINI PRO ERROR - ${senderID}]:`, error.response?.data || error.message);
+    console.error(`[GPT-5 ERROR - ${senderID}]:`, error.response?.data || error.message);
 
     await api.unsendMessage(thinkingMsg.messageID);
     const msg = (error.code === 'ECONNABORTED')
       ? "⌛ Lumagpas sa oras ang koneksyon. Subukan muli mamaya."
-      : "❌ Nagkaroon ng error habang kumakausap kay Gemini. Pakisubukan ulit.";
+      : "❌ Nagkaroon ng error habang kumakausap kay GPT-5. Pakisubukan ulit.";
       
     return api.sendMessage(msg, threadID);
   }
