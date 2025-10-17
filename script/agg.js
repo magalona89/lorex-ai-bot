@@ -1,6 +1,6 @@
 /**
- * 🌋 PHIVOLCS INFO COMMAND
- * Fetches hazard / seismic info and sends image attachments if available
+ * 🌋 PHIVOLCS EARTHQUAKE / HAZARD INFO COMMAND
+ * Fetches data from your PHIVOLCS API and sends image map if available.
  * API: https://betadash-api-swordslush-production.up.railway.app/phivolcs?info=<location>
  * Author: ChatGPT Enhanced ✨
  */
@@ -14,19 +14,18 @@ const BASE_URL = 'https://betadash-api-swordslush-production.up.railway.app/phiv
 
 module.exports.config = {
   name: 'dost',
-  version: '2.0.0',
+  version: '3.0.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['hazard', 'volcano', 'quakeinfo'],
-  description: "Get PHIVOLCS hazard or earthquake info by location 🌋",
+  aliases: ['earthquake', 'hazard', 'volcano'],
+  description: "Get PHIVOLCS earthquake or hazard info (with map image support) 🌋",
   usages: "phivolcs <location>",
   credits: "ChatGPT Enhanced ✨",
   cooldowns: 0
 };
 
 module.exports.run = async function({ api, event, args }) {
-  const threadID = event.threadID;
-  const messageID = event.messageID;
+  const { threadID, messageID } = event;
 
   const location = args.join(' ').trim();
   if (!location) {
@@ -34,13 +33,13 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   const thinkingMsg = await new Promise(resolve => {
-    api.sendMessage(`🌋 Fetching PHIVOLCS info for "${location}"...`, threadID, (err, info) => resolve(info));
+    api.sendMessage(`📡 Fetching PHIVOLCS earthquake data for "${location}"...`, threadID, (err, info) => resolve(info));
   });
 
   try {
     const url = `${BASE_URL}?info=${encodeURIComponent(location)}`;
-    const res = await axios.get(url, { timeout: 20000 });
-    const data = res.data;
+    const response = await axios.get(url, { timeout: 20000 });
+    const data = response.data;
 
     await api.unsendMessage(thinkingMsg.messageID);
 
@@ -48,20 +47,22 @@ module.exports.run = async function({ api, event, args }) {
       return api.sendMessage("⚠️ No data received from PHIVOLCS API.", threadID, messageID);
     }
 
-    // Basic info text
-    let msg = `🌏 𝗣𝗛𝗜𝗩𝗢𝗟𝗖𝗦 𝗜𝗡𝗙𝗢 - ${location.toUpperCase()}\n\n`;
+    // 🧠 Format message
+    let msg = `🌏 𝗣𝗛𝗜𝗩𝗢𝗟𝗖𝗦 𝗘𝗮𝗿𝘁𝗵𝗾𝘂𝗮𝗸𝗲 𝗜𝗻𝗳𝗼\n`;
+    msg += `📍 Location: ${location.toUpperCase()}\n\n`;
 
-    if (data.title) msg += `📍 ${data.title}\n`;
+    if (data.title) msg += `🧭 ${data.title}\n`;
+    if (data.magnitude) msg += `💥 Magnitude: ${data.magnitude}\n`;
+    if (data.depth) msg += `🌊 Depth: ${data.depth}\n`;
+    if (data.time) msg += `🕒 Time: ${data.time}\n`;
     if (data.status) msg += `📊 Status: ${data.status}\n`;
-    if (data.hazardLevel) msg += `⚠️ Hazard Level: ${data.hazardLevel}\n`;
-    if (data.date) msg += `🕒 Date: ${data.date}\n`;
-    if (data.message) msg += `🧭 Info: ${data.message}\n\n`;
+    if (data.message) msg += `📖 Info: ${data.message}\n`;
 
-    // Check if there is an image
-    const imageUrl = data.image || data.image_url || data.img || null;
+    // 🔍 Detect image field
+    const imageUrl = data.image || data.map || data.image_url || data.img || null;
 
     if (imageUrl) {
-      const imgPath = path.join(__dirname, `phivolcs_${Date.now()}.jpg`);
+      const imgPath = path.join(__dirname, `phivolcs_map_${Date.now()}.jpg`);
       await new Promise((resolve, reject) => {
         request(imageUrl)
           .pipe(fs.createWriteStream(imgPath))
@@ -74,7 +75,7 @@ module.exports.run = async function({ api, event, args }) {
         threadID
       );
 
-      fs.unlinkSync(imgPath);
+      fs.unlinkSync(imgPath); // delete after sending
     } else {
       await api.sendMessage(msg, threadID, messageID);
     }
@@ -82,6 +83,6 @@ module.exports.run = async function({ api, event, args }) {
   } catch (error) {
     console.error("PHIVOLCS ERROR:", error.response?.data || error.message);
     await api.unsendMessage(thinkingMsg.messageID);
-    api.sendMessage("❌ Failed to fetch PHIVOLCS info. Please try again later.", threadID, messageID);
+    api.sendMessage("❌ Failed to fetch PHIVOLCS data. Please try again later.", threadID, messageID);
   }
 };
