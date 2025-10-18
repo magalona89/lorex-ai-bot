@@ -96,11 +96,11 @@ const locationMap = {
 };
 
 module.exports.config = {
-    name: 'ai1',
+    name: 'aria1',
     version: '3.2.0',
     hasPermission: 0,
     usePrefix: false,
-    aliases: ['ai', 'betadash', 'proai', 'aiweather'],
+    aliases: ['aria', 'betadash', 'proai', 'aiweather'],
     description: "Pro Assistant AI with modes, auto-search weather, TTS, AQI, and alerts.",
     usages: "assistant [mode/weather/tts] [prompt/city/country/text] (TTS sends voice audio)",
     credits: 'Betadash API, WeatherAPI & Typecast AI (Fully Integrated)',
