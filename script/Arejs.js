@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-// Bold text converter (unchanged)
+// Bold text converter
 function convertToBold(text) {
     const boldMap = {
         'a': '𝗮', 'b': '𝗯', 'c': '𝗰', 'd': '𝗱', 'e': '𝗲', 'f': '𝗳', 'g': '𝗴', 'h': '𝗵', 'i': '𝗶', 'j': '𝗷', 'k': '𝗸', 'l': '𝗹', 'm': '𝗺', 'n': '𝗻', 'o': '𝗼', 'p': '𝗽', 'q': '𝗾', 'r': '𝗿', 's': '𝘀', 't': '𝘁', 'u': '𝘂', 'v': '𝘃', 'w': '𝘄', 'x': '𝘅', 'y': '𝘆', 'z': '𝘇',
@@ -9,7 +9,7 @@ function convertToBold(text) {
     return text.split('').map(char => boldMap[char] || char).join('');
 }
 
-// Get Philippine date/time (unchanged)
+// Get Philippine date/time
 function getPhilippineDateTime() {
     try {
         const now = new Date().toLocaleString('en-PH', {
@@ -29,29 +29,82 @@ function getPhilippineDateTime() {
     }
 }
 
-// Profanity filter (unchanged)
+// Profanity filter
 function hasProfanity(text) {
     const badWords = ['badword1', 'badword2']; // Customize
     return badWords.some(word => text.toLowerCase().includes(word));
 }
 
-// Location map (unchanged, partial for brevity)
+// Location map (partial for N-Z countries; add more if needed)
 const locationMap = {
     'Namibia': 'Windhoek',
     'Nauru': 'Yaren',
-    // ... (add full list if needed)
+    'Nepal': 'Kathmandu',
+    'Netherlands': 'Amsterdam',
+    'New Zealand': 'Wellington',
+    'Nicaragua': 'Managua',
+    'Niger': 'Niamey',
+    'Nigeria': 'Abuja',
+    'North Korea': 'Pyongyang',
+    'North Macedonia': 'Skopje',
+    'Norway': 'Oslo',
+    'Oman': 'Muscat',
+    'Pakistan': 'Islamabad',
+    'Palau': 'Ngerulmud',
+    'Palestine': 'Ramallah',
+    'Panama': 'Panama City',
+    'Papua New Guinea': 'Port Moresby',
+    'Paraguay': 'Asunción',
+    'Peru': 'Lima',
+    'Philippines': 'Manila',
+    'Poland': 'Warsaw',
+    'Portugal': 'Lisbon',
+    'Qatar': 'Doha',
+    'Romania': 'Bucharest',
+    'Russia': 'Moscow',
+    'Rwanda': 'Kigali',
+    'Saint Kitts and Nevis': 'Basseterre',
+    'Saint Lucia': 'Castries',
+    'Saint Vincent and the Grenadines': 'Kingstown',
+    'Samoa': 'Apia',
+    'San Marino': 'San Marino',
+    'Sao Tome and Principe': 'São Tomé',
+    'Saudi Arabia': 'Riyadh',
+    'Senegal': 'Dakar',
+    'Serbia': 'Belgrade',
+    'Seychelles': 'Victoria',
+    'Sierra Leone': 'Freetown',
+    'Singapore': 'Singapore',
+    'Slovakia': 'Bratislava',
+    'Slovenia': 'Ljubljana',
+    'Solomon Islands': 'Honiara',
+    'Somalia': 'Mogadishu',
+    'South Africa': 'Pretoria',
+    'South Korea': 'Seoul',
+    'South Sudan': 'Juba',
+    'Spain': 'Madrid',
+    'Sri Lanka': 'Colombo',
+    'Sudan': 'Khartoum',
+    'Suriname': 'Paramaribo',
+    'Sweden': 'Stockholm',
+    'Switzerland': 'Bern',
+    'Syria': 'Damascus',
+    'Taiwan': 'Taipei',
+    'Tajikistan': 'Dushanbe',
+    'Tanzania': 'Dodoma',
+    'Thailand': 'Bangkok',
 };
 
 module.exports.config = {
-    name: 'aria1',
-    version: '3.2.0', // Updated with TTS integration
+    name: 'assistant',
+    version: '3.2.0',
     hasPermission: 0,
     usePrefix: false,
-    aliases: ['aria', 'betadash', 'proai', 'aiweather'],
+    aliases: ['ai', 'betadash', 'proai', 'aiweather'],
     description: "Pro Assistant AI with modes, auto-search weather, TTS, AQI, and alerts.",
     usages: "assistant [mode/weather/tts] [prompt/city/country/text] (TTS sends voice audio)",
     credits: 'Betadash API, WeatherAPI & Typecast AI (Fully Integrated)',
-    cooldowns: 0, // Longer for TTS
+    cooldowns: 3,
     dependencies: { "axios": "" }
 };
 
@@ -129,7 +182,7 @@ module.exports.run = async function({ api, event, args }) {
         }
     }
 
-    // Weather Mode with Auto-Search (unchanged)
+    // Weather Mode with Auto-Search
     if (input.toLowerCase().startsWith('weather ')) {
         let city = input.slice(8).trim() || "Manila";
         const countryKey = Object.keys(locationMap).find(key => key.toLowerCase() === city.toLowerCase());
@@ -171,7 +224,7 @@ module.exports.run = async function({ api, event, args }) {
         }
     }
 
-    // AI Mode (unchanged)
+    // AI Mode
     api.sendMessage("🔄 Thinking in Pro Mode...", threadID, messageID);
 
     try {
