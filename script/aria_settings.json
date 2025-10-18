@@ -1,0 +1,40 @@
+{
+  "maintenance": false,
+  "protectionMode": false,
+  "ownerIDs": [
+    "61580959514473"
+  ],
+  "features": {
+    "boldFormatting": true,
+    "profanityFilter": true,
+    "aiRetrySystem": true,
+    "weatherAutoSearch": true,
+    "ttsVoiceReplies": true,
+    "philippineTimeDisplay": true,
+    "tipMessages": true,
+    "reactionEmojis": true,
+    "errorLogs": true,
+    "autoReplies": true,
+    "aiPersonalityFriendly": true,
+    "aiPersonalityFormal": false,
+    "aiPersonalityHumor": false,
+    "weatherEmojis": true,
+    "ttsAutoResponse": false,
+    "responseTypingEffect": false,
+    "aiSummarizeLongText": false,
+    "commandLogging": false,
+    "adminNotifications": true,
+    "systemHealthCheck": true,
+    "aiQuoteMode": false,
+    "aiFactMode": false,
+    "weatherTips": true,
+    "aiShortResponses": false,
+    "aiDetailedResponses": true,
+    "ttsVoiceSelect": false,
+    "languageDetection": false,
+    "dailyGreeting": false,
+    "eventReminders": false,
+    "debugMode": false,
+    "autoBan": true
+  }
+}
