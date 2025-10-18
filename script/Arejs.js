@@ -96,7 +96,7 @@ const locationMap = {
 };
 
 module.exports.config = {
-    name: 'assistant',
+    name: 'ai1',
     version: '3.2.0',
     hasPermission: 0,
     usePrefix: false,
@@ -104,7 +104,7 @@ module.exports.config = {
     description: "Pro Assistant AI with modes, auto-search weather, TTS, AQI, and alerts.",
     usages: "assistant [mode/weather/tts] [prompt/city/country/text] (TTS sends voice audio)",
     credits: 'Betadash API, WeatherAPI & Typecast AI (Fully Integrated)',
-    cooldowns: 3,
+    cooldowns: 0,
     dependencies: { "axios": "" }
 };
 
