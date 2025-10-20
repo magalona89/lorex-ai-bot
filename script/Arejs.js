@@ -64,12 +64,12 @@ function bold(text) {
 
 module.exports.config = {
   name: "aria1",
-  version: "10.2.0",
+  version: "10.3.0",
   hasPermission: 0,
   usePrefix: false,
   aliases: ["aria", "ariav10", "aria-ai"],
-  description: "ARIA AI PRO v10.2.0 — Smart Assistant + Admin Tools (New API)",
-  usages: "aria [tanong/settings/update/kick/adduser/rules]",
+  description: "ARIA AI PRO v10.3.0 — Smart Assistant + Admin Tools (New API + Update System)",
+  usages: "aria [question/settings/update/kick/adduser/rules]",
   credits: "Daikyu x SwordSlush x Zetsu",
   cooldowns: 0
 };
@@ -91,7 +91,7 @@ module.exports.run = async ({ api, event, args }) => {
   if (maintenanceMode && !isAdmin)
     return api.sendMessage("🚧 Aria AI PRO is under maintenance.", threadID, messageID);
 
-  // ⚙️ Settings
+  // ⚙️ SETTINGS PANEL
   if (args[0]?.toLowerCase() === "settings") {
     if (args[1]?.toLowerCase() === "list") {
       const list = Object.entries(settings)
@@ -110,28 +110,51 @@ module.exports.run = async ({ api, event, args }) => {
     return api.sendMessage(`✅ ${feature} turned ${value.toUpperCase()}.`, threadID, messageID);
   }
 
-  // 🔄 Version Info
+  // 🆕 UPDATE LOG & VERSIONS
   if (args[0]?.toLowerCase() === "update" || args[0]?.toLowerCase() === "version") {
     const updateMessage = [
-      "💠 *ARIA AI PRO — Update Log*",
+      "💠 *ARIA AI PRO — Updates & Features*",
       "━━━━━━━━━━━━━━━━━━━",
       "",
-      "🆕 *v10.2.0 (Current)*",
-      "🔹 Switched to new /assistant API",
-      "🔹 Optimized message response system",
-      "🔹 Improved formatting and performance",
+      "🧩 *Version History:*",
+      "🔹 v1.0 — Aria Alpha (Base AI)",
+      "🔹 v2.0 — Added Commands System",
+      "🔹 v3.0 — Introduced Group Mode",
+      "🔹 v4.0 — Smarter Replies & Humor",
+      "🔹 v5.0 — Admin Tools & Rules System",
+      "🔹 v6.0 — Auto React + Conversation Memory",
+      "🔹 v7.0 — Image Analysis & Generation",
+      "🔹 v8.0 — Safe Mode + Smart Filters",
+      "🔹 v9.0 — ARIA PRO Revamp (Fast Mode)",
+      "🔹 v10.0 — Full PRO Core (39 Settings)",
+      "🔹 v10.2 — New API Integration",
+      "🔹 v10.3 — Update Log + Coming Soon Panel",
       "",
-      "⚙️ *v10.1.0*",
-      "🔹 Added 39+ toggleable features",
-      "🔹 Group moderation tools",
-      "🔹 Auto personality + humor",
+      "⚙️ *Current Features:*",
+      "✅ Smart AI Chat (SwordSlush API)",
+      "✅ AutoReact + Personality + Humor",
+      "✅ Group Admin Tools (kick/adduser/rules)",
+      "✅ 39+ Customizable Settings",
+      "✅ Profanity & Safe Link Filters",
+      "✅ AI Image Analyze + Generation",
+      "✅ Fast Mode + Auto Error Retry",
       "",
-      "✨ *Powered by SwordSlush Engine*"
+      "🚀 *Coming Soon:*",
+      "🔸 Aria Voice Chat (beta)",
+      "🔸 Memory Save per User",
+      "🔸 Auto Greet System",
+      "🔸 Aria Web Dashboard (ARIA CLOUD)",
+      "🔸 Role-based Admin Control",
+      "🔸 Aria App (Mobile Sync)",
+      "",
+      "📅 *Last Update:* October 2025",
+      "",
+      "✨ *Powered by SwordSlush Engine x Daikyu Systems*"
     ].join("\n");
     return api.sendMessage(updateMessage, threadID, messageID);
   }
 
-  // 👮 Group Admin
+  // 👮 GROUP ADMIN COMMANDS
   if (settings.groupAdmin && event.isGroup) {
     if (args[0]?.toLowerCase() === "kick" && settings.allowKick) {
       if (!event.messageReply)
@@ -159,17 +182,17 @@ module.exports.run = async ({ api, event, args }) => {
 
     if (args[0]?.toLowerCase() === "rules" && settings.allowRules) {
       return api.sendMessage(
-        `📜 𝗚𝗿𝗼𝘂𝗽 𝗥𝘂𝗹𝗲𝘀\n━━━━━━━━━━━━━━\n1. No spam\n2. No bullying\n3. Respect others\n4. Keep it clean\n5. Follow admins`,
+        `📜 𝗚𝗿𝗼𝘂𝗽 𝗥𝘂𝗹𝗲𝘀\n━━━━━━━━━━━━━━\n1. No spam\n2. No bullying\n3. Respect others\n4. Keep chat clean\n5. Follow admins`,
         threadID,
         messageID
       );
     }
   }
 
-  // 💬 Main AI Chat
+  // 💬 MAIN AI CHAT
   if (!query)
     return api.sendMessage(
-      "🤖 Aria AI PRO v10.2.0 is online!\nTry: `aria update`, `aria rules`, or ask anything 💬",
+      "🤖 Aria AI PRO v10.3.0 Online!\nType: `aria update` to view all versions & features 💡",
       threadID,
       messageID
     );
