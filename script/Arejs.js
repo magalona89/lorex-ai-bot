@@ -4,7 +4,6 @@ const path = require("path");
 
 const settingsFile = path.join(__dirname, "aria_settings.json");
 const adminID = "61580959514473";
-let conversationHistory = {};
 let maintenanceMode = false;
 
 const defaultSettings = {
@@ -65,13 +64,13 @@ function bold(text) {
 
 module.exports.config = {
   name: "aria1",
-  version: "10.0.0",
+  version: "10.2.0",
   hasPermission: 0,
   usePrefix: false,
-  aliases: ["opera", "aria"],
-  description: "Pro ARIA AI v10 — AI Chat + Group Admin + 39 Settings System",
-  usages: "aria [prompt/settings/kick/adduser/rules]",
-  credits: "Daikyu x Rapido x Zetsu",
+  aliases: ["aria", "ariav10", "aria-ai"],
+  description: "ARIA AI PRO v10.2.0 — Smart Assistant + Admin Tools (New API)",
+  usages: "aria [tanong/settings/update/kick/adduser/rules]",
+  credits: "Daikyu x SwordSlush x Zetsu",
   cooldowns: 0
 };
 
@@ -83,16 +82,16 @@ module.exports.run = async ({ api, event, args }) => {
   let query = args.join(" ");
   const isAdmin = uid === adminID;
 
-  // MAINTENANCE MODE
+  // 🛠️ Maintenance Mode
   if (args[0]?.toLowerCase() === "maintaince" && isAdmin) {
     const toggle = args[1]?.toLowerCase();
     maintenanceMode = toggle === "on";
     return api.sendMessage(`🛠️ Maintenance ${maintenanceMode ? "Activated" : "Deactivated"}`, threadID, messageID);
   }
   if (maintenanceMode && !isAdmin)
-    return api.sendMessage("🚧 Aria PRO is under maintenance.", threadID, messageID);
+    return api.sendMessage("🚧 Aria AI PRO is under maintenance.", threadID, messageID);
 
-  // SETTINGS PANEL
+  // ⚙️ Settings
   if (args[0]?.toLowerCase() === "settings") {
     if (args[1]?.toLowerCase() === "list") {
       const list = Object.entries(settings)
@@ -111,9 +110,29 @@ module.exports.run = async ({ api, event, args }) => {
     return api.sendMessage(`✅ ${feature} turned ${value.toUpperCase()}.`, threadID, messageID);
   }
 
-  // GROUP ADMIN COMMANDS
+  // 🔄 Version Info
+  if (args[0]?.toLowerCase() === "update" || args[0]?.toLowerCase() === "version") {
+    const updateMessage = [
+      "💠 *ARIA AI PRO — Update Log*",
+      "━━━━━━━━━━━━━━━━━━━",
+      "",
+      "🆕 *v10.2.0 (Current)*",
+      "🔹 Switched to new /assistant API",
+      "🔹 Optimized message response system",
+      "🔹 Improved formatting and performance",
+      "",
+      "⚙️ *v10.1.0*",
+      "🔹 Added 39+ toggleable features",
+      "🔹 Group moderation tools",
+      "🔹 Auto personality + humor",
+      "",
+      "✨ *Powered by SwordSlush Engine*"
+    ].join("\n");
+    return api.sendMessage(updateMessage, threadID, messageID);
+  }
+
+  // 👮 Group Admin
   if (settings.groupAdmin && event.isGroup) {
-    // KICK
     if (args[0]?.toLowerCase() === "kick" && settings.allowKick) {
       if (!event.messageReply)
         return api.sendMessage("⚠️ Reply to a user to kick them.", threadID, messageID);
@@ -126,7 +145,6 @@ module.exports.run = async ({ api, event, args }) => {
       }
     }
 
-    // ADD USER
     if (args[0]?.toLowerCase() === "adduser" && settings.allowAddUser) {
       const userID = args[1];
       if (!userID)
@@ -139,35 +157,42 @@ module.exports.run = async ({ api, event, args }) => {
       }
     }
 
-    // RULES
     if (args[0]?.toLowerCase() === "rules" && settings.allowRules) {
       return api.sendMessage(
-        `📜 𝗚𝗿𝗼𝘂𝗽 𝗥𝘂𝗹𝗲𝘀\n━━━━━━━━━━━━━━\n1. No spamming\n2. No bullying\n3. Respect others\n4. Keep chat clean\n5. Follow admin instructions`,
+        `📜 𝗚𝗿𝗼𝘂𝗽 𝗥𝘂𝗹𝗲𝘀\n━━━━━━━━━━━━━━\n1. No spam\n2. No bullying\n3. Respect others\n4. Keep it clean\n5. Follow admins`,
         threadID,
         messageID
       );
     }
   }
 
-  // MAIN AI CHAT
+  // 💬 Main AI Chat
   if (!query)
     return api.sendMessage(
-      "🤖 Aria PRO v10 is online!\nType your question or use: `aria settings list`, `aria rules`, `aria kick`, `aria adduser`",
+      "🤖 Aria AI PRO v10.2.0 is online!\nTry: `aria update`, `aria rules`, or ask anything 💬",
       threadID,
       messageID
     );
 
-  if (settings.autoReact) api.setMessageReaction("🚀", messageID, () => {}, true);
+  if (settings.autoReact) api.setMessageReaction("💠", messageID, () => {}, true);
 
   try {
-    const { data } = await axios.get(`https://rapido.zetsu.xyz/api/aria?prompt=${encodeURIComponent(query)}`);
-    let response = data.response || "⚠️ No response.";
-    if (settings.boldFormat) response = response.replace(/\*\*(.*?)\*\*/g, (_, t) => `𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁: ${t}`);
-    const msg = `✨ 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 (${settings.fastMode ? "⚡ Fast" : "Normal"})\n━━━━━━━━━━━━━━\n${response}`;
+    // ✅ NEW API ENDPOINT (Assistant)
+    const { data } = await axios.get(
+      `https://betadash-api-swordslush-production.up.railway.app/assistant?chat=${encodeURIComponent(query)}`
+    );
+
+    let response = data.response || data.answer || "⚠️ No reply from Aria Assistant.";
+    if (settings.boldFormat)
+      response = response.replace(/\*\*(.*?)\*\*/g, (_, t) => `𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁: ${t}`);
+
+    const msg = `💠 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 𝗔𝗜\n━━━━━━━━━━━━━━\n${response}\n\n🧠 Powered by SwordSlush API`;
     api.sendMessage(msg, threadID, () => {
-      if (settings.autoReact) api.setMessageReaction("💡", messageID, () => {}, true);
+      if (settings.autoReact) api.setMessageReaction("✨", messageID, () => {}, true);
     });
+
   } catch (e) {
-    api.sendMessage("❌ Aria API error. Try again later.", threadID, messageID);
+    console.error("Aria API Error:", e.message);
+    api.sendMessage("❌ Aria API error. Please try again later.", threadID, messageID);
   }
 };
