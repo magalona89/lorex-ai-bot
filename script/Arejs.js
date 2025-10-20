@@ -408,11 +408,11 @@ async function showProfile(targetArg, threadID, api, fallbackID){
 
 // -------------------- Command dispatcher --------------------
 module.exports.config = {
-  name: 'aria',
+  name: 'aria1',
   version: '7.0',
   hasPermission: 0,
   usePrefix: false,
-  aliases: ['aria-games','aria-dashboard'],
+  aliases: ['aria','aria-dashboard'],
   description: 'Aria v7 — Games + Dashboard + Settings',
   usages: 'aria [command]',
   cooldowns: 0
