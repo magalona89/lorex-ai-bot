@@ -1,0 +1,53 @@
+{
+  "example_user_1001": {
+    "name": "Example User",
+    "xp": 120,
+    "level": 2,
+    "coins": 250,
+    "gamesPlayed": 5,
+    "wins": 2,
+    "badges": ["🎮 Beginner", "💬 Active"],
+    "lastActive": "2025-10-20 14:35:00",
+    "lastDaily": 1697794800000,
+    "banned": false,
+    "banExpires": null,
+    "cooldowns": {
+      "daily": 0,
+      "game": 0
+    }
+  },
+  "example_user_2002": {
+    "name": "Another Player",
+    "xp": 850,
+    "level": 8,
+    "coins": 950,
+    "gamesPlayed": 30,
+    "wins": 15,
+    "badges": ["🏆 Champion", "🎯 Quick Thinker", "💰 Lucky Spinner"],
+    "lastActive": "2025-10-20 15:20:00",
+    "lastDaily": 1697794800000,
+    "banned": false,
+    "banExpires": null,
+    "cooldowns": {
+      "daily": 0,
+      "game": 0
+    }
+  },
+  "example_user_3003": {
+    "name": "New Player",
+    "xp": 0,
+    "level": 1,
+    "coins": 0,
+    "gamesPlayed": 0,
+    "wins": 0,
+    "badges": [],
+    "lastActive": "2025-10-20 10:00:00",
+    "lastDaily": null,
+    "banned": false,
+    "banExpires": null,
+    "cooldowns": {
+      "daily": 0,
+      "game": 0
+    }
+  }
+}
