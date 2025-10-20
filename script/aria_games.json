@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "totalGames": 50,
+    "lastUpdated": "2025-10-20 16:00:00",
+    "version": "7.0.0"
+  },
+
+  "games": {
+    "spinFruits": {
+      "name": "Spin Fruits",
+      "category": "Casino",
+      "enabled": true,
+      "plays": 215,
+      "wins": 83,
+      "losses": 132,
+      "bestScore": 300,
+      "difficulty": "Easy",
+      "rewardCoins": 30,
+      "rewardXP": 30
+    },
+
+    "guessNumber": {
+      "name": "Guess The Number",
+      "category": "Logic",
+      "enabled": true,
+      "plays": 190,
+      "wins": 70,
+      "losses": 120,
+      "bestScore": 100,
+      "difficulty": "Medium",
+      "rewardCoins": 50,
+      "rewardXP": 50
+    },
+
+    "mathQuiz": {
+      "name": "Math Quiz",
+      "category": "Brain",
+      "enabled": true,
+      "plays": 75,
+      "wins": 25,
+      "losses": 50,
+      "bestScore": 200,
+      "difficulty": "Medium",
+      "rewardCoins": 40,
+      "rewardXP": 40
+    },
+
+    "trivia": {
+      "name": "Trivia Challenge",
+      "category": "Knowledge",
+      "enabled": true,
+      "plays": 110,
+      "wins": 50,
+      "losses": 60,
+      "bestScore": 300,
+      "difficulty": "Hard",
+      "rewardCoins": 70,
+      "rewardXP": 70
+    },
+
+    "riddle": {
+      "name": "Riddle Me",
+      "category": "Puzzle",
+      "enabled": true,
+      "plays": 80,
+      "wins": 35,
+      "losses": 45,
+      "bestScore": 180,
+      "difficulty": "Medium",
+      "rewardCoins": 45,
+      "rewardXP": 45
+    },
+
+    "coinFlip": {
+      "name": "Coin Flip",
+      "category": "Chance",
+      "enabled": true,
+      "plays": 50,
+      "wins": 22,
+      "losses": 28,
+      "bestScore": 100,
+      "difficulty": "Easy",
+      "rewardCoins": 20,
+      "rewardXP": 20
+    },
+
+    "emojiMatch": {
+      "name": "Emoji Match",
+      "category": "Memory",
+      "enabled": true,
+      "plays": 63,
+      "wins": 30,
+      "losses": 33,
+      "bestScore": 250,
+      "difficulty": "Medium",
+      "rewardCoins": 30,
+      "rewardXP": 30
+    },
+
+    "hangman": {
+      "name": "Hangman",
+      "category": "Word",
+      "enabled": true,
+      "plays": 40,
+      "wins": 12,
+      "losses": 28,
+      "bestScore": 150,
+      "difficulty": "Hard",
+      "rewardCoins": 60,
+      "rewardXP": 60
+    },
+
+    "slots": {
+      "name": "Slot Machine",
+      "category": "Casino",
+      "enabled": true,
+      "plays": 102,
+      "wins": 40,
+      "losses": 62,
+      "bestScore": 400,
+      "difficulty": "Easy",
+      "rewardCoins": 35,
+      "rewardXP": 35
+    },
+
+    "race": {
+      "name": "Mini Race",
+      "category": "Action",
+      "enabled": true,
+      "plays": 89,
+      "wins": 43,
+      "losses": 46,
+      "bestScore": 220,
+      "difficulty": "Medium",
+      "rewardCoins": 40,
+      "rewardXP": 40
+    }
+  },
+
+  "globalLeaderboard": {
+    "mostXP": [
+      { "userID": "1001", "xp": 2300, "level": 10 },
+      { "userID": "2002", "xp": 1850, "level": 8 },
+      { "userID": "3003", "xp": 950, "level": 5 }
+    ],
+    "mostWins": [
+      { "userID": "2002", "wins": 25 },
+      { "userID": "1001", "wins": 19 },
+      { "userID": "3003", "wins": 6 }
+    ],
+    "richestPlayers": [
+      { "userID": "1001", "coins": 2500 },
+      { "userID": "2002", "coins": 2000 },
+      { "userID": "3003", "coins": 500 }
+    ]
+  }
+}
