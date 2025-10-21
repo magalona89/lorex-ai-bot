@@ -1,0 +1,58 @@
+{
+  "dailyLimit": 10,
+  "plans": {
+    "1": "Basic 🌱 — 10 messages/day",
+    "2": "Lite 💫 — 20 messages/day",
+    "3": "Student 🎓 — 25 messages/day",
+    "4": "Fun 😄 — 30 messages/day",
+    "5": "Chill 🍃 — 40 messages/day",
+    "6": "Smart 💡 — 50 messages/day",
+    "7": "Gamer 🎮 — 60 messages/day",
+    "8": "Artist 🎨 — 75 messages/day",
+    "9": "Tech ⚙️ — 100 messages/day",
+    "10": "Mix 🧩 — 120 messages/day",
+    "PREMIUM": "👑 Premium Plan — Unlimited messages + Extra features",
+    "TRIAL": "🧪 Trial Plan — 50 messages for 3 days"
+  },
+  "users": {
+    "10001": {
+      "name": "Example User",
+      "uid": "10001",
+      "plan": "Basic 🌱",
+      "type": "Free",
+      "messagesUsed": 4,
+      "limit": 10,
+      "joined": "2025-10-21",
+      "lastActive": "2025-10-21T08:32:00Z",
+      "trialActive": false
+    },
+    "10002": {
+      "name": "Tester Account",
+      "uid": "10002",
+      "plan": "PREMIUM 👑",
+      "type": "Premium",
+      "messagesUsed": 72,
+      "limit": 9999,
+      "joined": "2025-10-19",
+      "lastActive": "2025-10-21T09:12:15Z",
+      "trialActive": false
+    },
+    "10003": {
+      "name": "Trial Member",
+      "uid": "10003",
+      "plan": "TRIAL 🧪",
+      "type": "Trial",
+      "messagesUsed": 22,
+      "limit": 50,
+      "joined": "2025-10-21",
+      "lastActive": "2025-10-21T09:45:33Z",
+      "trialActive": true
+    }
+  },
+  "stats": {
+    "totalUsers": 3,
+    "activeToday": 2,
+    "totalMessages": 98,
+    "lastReset": "2025-10-21T00:00:00Z"
+  }
+}
