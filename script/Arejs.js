@@ -5,163 +5,185 @@ const path = require("path");
 const settingsFile = path.join(__dirname, "aria_settings.json");
 const adminID = "61580959514473";
 let maintenanceMode = false;
-let serverSuspended = false; // 🆕 Server suspension flag
 
-const defaultSettings = {
-  autoReact: true,
-  boldFormat: true,
-  fastMode: true,
-  safeMode: true,
-  profanityFilter: true,
-  conversationMemory: true,
-  emojiDecor: true,
-  timestamp: true,
-  maintenanceMode: false,
-  logging: true,
-  typingEdit: false,
-  groupAdmin: true,
-  allowKick: true,
-  allowAddUser: true,
-  allowRules: true,
-  imageGeneration: true,
-  imageEdit: true,
-  poliMode: true,
-  imageAnalyze: true,
-  smartReply: true,
-  compactOutput: false,
-  showTips: true,
-  errorRetry: true,
-  fastResponse: true,
-  maintenanceLock: false,
-  ruleReminder: true,
-  kickNotice: true,
-  respondWithPersonality: true,
-  aiHumor: true,
-  aiSummarize: false,
-  safeLinks: true,
-  userJoinGreet: true,
-  groupOnly: false,
-  commandLog: true,
-  adminBypass: true,
-  pinRules: false,
-  allowMediaResponse: true,
-  autoHelp: true
-};
-
+// Load settings
 function loadSettings() {
-  if (!fs.existsSync(settingsFile))
+  if (!fs.existsSync(settingsFile)) {
+    const defaultSettings = { serverSuspended: false, maintenanceMode: false };
     fs.writeJsonSync(settingsFile, defaultSettings, { spaces: 2 });
+  }
   return fs.readJsonSync(settingsFile);
 }
-
 function saveSettings(settings) {
   fs.writeJsonSync(settingsFile, settings, { spaces: 2 });
 }
 
 module.exports.config = {
   name: "aria1",
-  version: "10.4.0",
+  version: "18.5.0",
   hasPermission: 0,
   usePrefix: false,
-  aliases: ["aria", "ariav10", "aria-ai"],
-  description: "ARIA AI PRO v10.4.0 — Smart Assistant + Server Suspension System",
-  usages: "aria [question/settings/update/suspend]",
-  credits: "Daikyu x SwordSlush x Zetsu",
+  aliases: ["aria", "pro", "aria18"],
+  description: "ARIA PRO v18.5 — AI Chat + Group Admin + Profile UID Lookup + Uptime Monitor",
+  usages: "aria [message/settings/update/profile/uid]",
+  credits: "Daikyu x Rapido x Zetsu x ARIA PRO",
   cooldowns: 0
 };
 
 module.exports.run = async ({ api, event, args }) => {
   const threadID = event.threadID;
   const messageID = event.messageID;
-  const uid = event.senderID;
-  let settings = loadSettings();
-  const query = args.join(" ");
-  const isAdmin = uid === adminID;
+  const senderID = event.senderID;
+  const settings = loadSettings();
+  const isAdmin = senderID === adminID;
+  const query = args.join(" ").trim();
 
-  // 🧱 SERVER SUSPENSION SYSTEM
-  if (args[0]?.toLowerCase() === "suspend" && isAdmin) {
-    const toggle = args[1]?.toLowerCase();
-    if (!toggle) return api.sendMessage("⚙️ Usage: aria suspend on/off", threadID, messageID);
-    serverSuspended = toggle === "on";
+  // 🛑 Server Suspended
+  if (settings.serverSuspended) {
     return api.sendMessage(
-      `🚨 Aria AI Server has been ${serverSuspended ? "SUSPENDED 🔴" : "RESUMED 🟢"} by the owner.`,
+      "⚠️ 𝗔𝗿𝗶𝗮 𝗣𝗿𝗼 𝗦𝗲𝗿𝘃𝗲𝗿 𝗦𝘂𝘀𝗽𝗲𝗻𝗱𝗲𝗱\n━━━━━━━━━━━━━━\nServer is temporarily suspended by the owner.\nPlease contact admin to restore service.\n👑 Admin: https://facebook.com/profile.php?id=" +
+        adminID,
       threadID,
       messageID
     );
   }
 
-  if (serverSuspended && !isAdmin) {
-    return api.sendMessage(
-      "🚫 𝗔𝗿𝗶𝗮 𝗔𝗜 𝗦𝗲𝗿𝘃𝗲𝗿 𝗦𝘂𝘀𝗽𝗲𝗻𝗱𝗲𝗱\n━━━━━━━━━━━━━━\nThe Aria AI system is temporarily suspended by the owner.\nPlease contact admin for more information.\n\n📞 Admin ID: 61580959514473",
-      threadID,
-      messageID
-    );
-  }
-
-  // 🛠️ Maintenance Mode
-  if (args[0]?.toLowerCase() === "maintaince" && isAdmin) {
+  // 🧱 Maintenance Mode
+  if (args[0]?.toLowerCase() === "maintenance" && isAdmin) {
     const toggle = args[1]?.toLowerCase();
     maintenanceMode = toggle === "on";
-    return api.sendMessage(`🛠️ Maintenance ${maintenanceMode ? "Activated" : "Deactivated"}`, threadID, messageID);
+    settings.maintenanceMode = maintenanceMode;
+    saveSettings(settings);
+    return api.sendMessage(
+      `🛠️ Maintenance ${maintenanceMode ? "Activated" : "Deactivated"}.`,
+      threadID,
+      messageID
+    );
   }
   if (maintenanceMode && !isAdmin)
-    return api.sendMessage("🚧 Aria AI PRO is under maintenance.", threadID, messageID);
+    return api.sendMessage("🚧 Aria PRO is currently under maintenance.", threadID, messageID);
 
-  // 🆕 UPDATE LOG
-  if (args[0]?.toLowerCase() === "update" || args[0]?.toLowerCase() === "version") {
-    const updateMessage = [
-      "💠 *ARIA AI PRO — Updates & Features*",
-      "━━━━━━━━━━━━━━━━━━━",
-      "",
-      "🧩 *Version History:*",
-      "🔹 v1.0 — Aria Alpha (Base AI)",
-      "🔹 v5.0 — Admin Tools & Rules System",
-      "🔹 v7.0 — Image Analysis & Generation",
-      "🔹 v9.0 — Aria PRO Revamp (Fast Mode)",
-      "🔹 v10.3 — Update Log + Coming Soon Panel",
-      "🔹 v10.4 — Added Server Suspension System",
-      "",
-      "⚙️ *Current Features:*",
-      "✅ Smart AI Chat + SwordSlush API",
-      "✅ Group Admin Commands",
-      "✅ AutoReact, Safe Mode, Profanity Filter",
-      "✅ Maintenance & Server Suspension Modes",
-      "",
-      "🚀 *Coming Soon:*",
-      "🔸 Aria Voice Chat (beta)",
-      "🔸 User Memory Profiles",
-      "🔸 Aria Web Dashboard (Cloud Control)",
-      "🔸 Role-based Admin Permissions",
-      "",
-      "📅 *Last Update:* October 2025",
-      "",
-      "✨ *Powered by SwordSlush Engine x Daikyu Systems*"
-    ].join("\n");
-    return api.sendMessage(updateMessage, threadID, messageID);
+  // ⚙️ Settings List
+  if (args[0]?.toLowerCase() === "settings") {
+    if (args[1]?.toLowerCase() === "list") {
+      const list = Object.entries(settings)
+        .map(([k, v]) => `${v ? "✅" : "❌"} ${k}`)
+        .join("\n");
+      return api.sendMessage(`⚙️ 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 𝗦𝗲𝘁𝘁𝗶𝗻𝗴𝘀\n━━━━━━━━━━━━━━\n${list}`, threadID, messageID);
+    }
   }
 
-  // 💬 AI Response
+  // 🆙 Update Info
+  if (args[0]?.toLowerCase() === "update") {
+    return api.sendMessage(
+      `🚀 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 v18.5 — Update Log
+━━━━━━━━━━━━━━
+✅ Added UID Lookup from Profile Link  
+✅ Added Server Uptime Tracker  
+✅ Added Auto Restart Notice  
+✅ Optimized API Response  
+✅ Improved Maintenance Toggle  
+✅ Group Admin & Rules Enhanced  
+━━━━━━━━━━━━━━
+📡 API: betadash-api-swordslush-production.up.railway.app
+👑 Developer: Daikyu x Rapido x Zetsu
+⚙️ Command: aria [message/settings/update/profile/uid]`,
+      threadID,
+      messageID
+    );
+  }
+
+  // 📜 Rules
+  if (args[0]?.toLowerCase() === "rules") {
+    return api.sendMessage(
+      `📜 𝗚𝗿𝗼𝘂𝗽 𝗥𝘂𝗹𝗲𝘀
+━━━━━━━━━━━━━━
+1️⃣ Respect everyone
+2️⃣ No spam or flood
+3️⃣ No NSFW or hate speech
+4️⃣ Follow admins
+5️⃣ Enjoy chatting with ARIA responsibly 💫`,
+      threadID,
+      messageID
+    );
+  }
+
+  // 🆔 UID Lookup
+  if (args[0]?.toLowerCase() === "uid") {
+    const link = args[1];
+    if (!link) return api.sendMessage("🔗 Example: aria uid https://facebook.com/zuck", threadID, messageID);
+
+    try {
+      const res = await axios.get(`https://api.simsimi.xyz/api/fbuid?url=${encodeURIComponent(link)}`);
+      const uid = res.data.uid;
+      if (!uid) return api.sendMessage("❌ Unable to get UID from that link.", threadID, messageID);
+      return api.sendMessage(`👤 Facebook UID of ${link}\n🆔 UID: ${uid}`, threadID, messageID);
+    } catch (err) {
+      return api.sendMessage("⚠️ Failed to fetch UID. Try again later.", threadID, messageID);
+    }
+  }
+
+  // 🔁 Uptime Monitor (Admin Only)
+  if (args[0]?.toLowerCase() === "uptime" && isAdmin) {
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    return api.sendMessage(
+      `🕒 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 𝗨𝗽𝘁𝗶𝗺𝗲\n━━━━━━━━━━━━━━\n${hours}h ${minutes}m ${seconds}s`,
+      threadID,
+      messageID
+    );
+  }
+
+  // 👢 Kick / Add User (Group)
+  if (args[0]?.toLowerCase() === "kick" && event.isGroup) {
+    if (!event.messageReply)
+      return api.sendMessage("⚠️ Reply to a user to kick them.", threadID, messageID);
+    const target = event.messageReply.senderID;
+    try {
+      await api.removeUserFromGroup(target, threadID);
+      return api.sendMessage("👢 User kicked successfully.", threadID, messageID);
+    } catch {
+      return api.sendMessage("❌ Failed to remove user.", threadID, messageID);
+    }
+  }
+
+  if (args[0]?.toLowerCase() === "adduser" && event.isGroup) {
+    const userID = args[1];
+    if (!userID)
+      return api.sendMessage("⚠️ Provide a UID to add.", threadID, messageID);
+    try {
+      await api.addUserToGroup(userID, threadID);
+      return api.sendMessage(`👤 User ${userID} added successfully.`, threadID, messageID);
+    } catch {
+      return api.sendMessage("❌ Failed to add user.", threadID, messageID);
+    }
+  }
+
+  // 🤖 Main AI Chat
   if (!query)
     return api.sendMessage(
-      "🤖 Aria AI PRO v10.4.0 Online!\nType: `aria update` to view all versions & features 💡",
+      "💫 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 v18.5 is online!\nType `aria hello`, `aria settings list`, or `aria update`",
       threadID,
       messageID
     );
 
-  if (settings.autoReact) api.setMessageReaction("💠", messageID, () => {}, true);
+  api.setMessageReaction("🤖", messageID, () => {}, true);
 
   try {
-    const { data } = await axios.get(
+    const res = await axios.get(
       `https://betadash-api-swordslush-production.up.railway.app/assistant?chat=${encodeURIComponent(query)}`
     );
-    const response = data.response || data.answer || "⚠️ No reply from Aria Assistant.";
 
-    api.sendMessage(
-      `💠 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 𝗔𝗜\n━━━━━━━━━━━━━━\n${response}\n\n🧠 Powered by SwordSlush API`,
-      threadID,
-      messageID
-    );
-  } catch (e) {
-    api.sendMessage("❌ API Error. Try again later.", threadID, messageID);
+    const response = res.data.response || "I couldn’t process that right now.";
+    const msg = `💫 𝗔𝗿𝗶𝗮 𝗣𝗥𝗢 v18.5\n━━━━━━━━━━━━━━\n${response}\n━━━━━━━━━━━━━━\n⚙️ Fast Mode: On | Uptime Ready`;
+
+    api.sendMessage(msg, threadID, () => {
+      api.setMessageReaction("✨", messageID, () => {}, true);
+    });
+  } catch (err) {
+    console.error("Aria API Error:", err.message);
+    api.sendMessage("❌ AI service error. Try again later.", threadID, messageID);
   }
 };
