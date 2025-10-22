@@ -4,7 +4,6 @@ const path = require("path");
 
 const settingsFile = path.join(__dirname, "phi_settings.json");
 const adminID = "61580959514473";
-let conversationHistory = {};
 let maintenanceMode = false;
 
 const defaultSettings = {
@@ -48,30 +47,46 @@ const defaultSettings = {
   autoHelp: true
 };
 
+// 🧩 Load & Save Settings
 function loadSettings() {
-  if (!fs.existsSync(settingsFile))
-    fs.writeJsonSync(settingsFile, defaultSettings, { spaces: 2 });
-  return fs.readJsonSync(settingsFile);
+  try {
+    if (!fs.existsSync(settingsFile)) {
+      fs.writeJsonSync(settingsFile, defaultSettings, { spaces: 2 });
+    }
+    return fs.readJsonSync(settingsFile);
+  } catch (err) {
+    console.error("❌ Failed to load settings:", err);
+    return defaultSettings;
+  }
 }
 
 function saveSettings(settings) {
-  fs.writeJsonSync(settingsFile, settings, { spaces: 2 });
+  try {
+    fs.writeJsonSync(settingsFile, settings, { spaces: 2 });
+  } catch (err) {
+    console.error("❌ Failed to save settings:", err);
+  }
 }
 
+// ✨ Bold Formatting Function
 function bold(text) {
-  const map = { a:'𝗮',b:'𝗯',c:'𝗰',d:'𝗱',e:'𝗲',f:'𝗳',g:'𝗴',h:'𝗵',i:'𝗶',j:'𝗷',k:'𝗸',l:'𝗹',m:'𝗺',n:'𝗻',o:'𝗼',p:'𝗽',q:'𝗾',r:'𝗿',s:'𝘀',t:'𝘁',u:'𝘂',v:'𝘃',w:'𝘄',x:'𝘅',y:'𝘆',z:'𝘇' };
+  const map = {
+    a:'𝗮',b:'𝗯',c:'𝗰',d:'𝗱',e:'𝗲',f:'𝗳',g:'𝗴',h:'𝗵',i:'𝗶',j:'𝗷',
+    k:'𝗸',l:'𝗹',m:'𝗺',n:'𝗻',o:'𝗼',p:'𝗽',q:'𝗾',r:'𝗿',s:'𝘀',t:'𝘁',
+    u:'𝘂',v:'𝘃',w:'𝘄',x:'𝘅',y:'𝘆',z:'𝘇'
+  };
   return text.split("").map(ch => map[ch.toLowerCase()] || ch).join("");
 }
 
 module.exports.config = {
   name: "phi",
-  version: "10.1.0",
+  version: "10.1.1",
   hasPermission: 0,
   usePrefix: false,
   aliases: ["phiai", "phi-pro", "phi10"],
   description: "PHI AI PRO v10 — Smart Chat + Group Admin + Settings System",
-  usages: "phi [tanong/settings/kick/adduser/rules/update]",
-  credits: "SwordSlush x Daikyu x Zetsu",
+  usages: "phi [question/settings/kick/adduser/rules/update]",
+  credits: "SwordSlush x Daikyu x Zetsu (Updated by Rynxx)",
   cooldowns: 0
 };
 
@@ -84,7 +99,7 @@ module.exports.run = async ({ api, event, args }) => {
   const isAdmin = uid === adminID;
 
   // 🛠️ Maintenance Mode
-  if (args[0]?.toLowerCase() === "maintaince" && isAdmin) {
+  if (args[0]?.toLowerCase() === "maintenance" && isAdmin) {
     const toggle = args[1]?.toLowerCase();
     maintenanceMode = toggle === "on";
     return api.sendMessage(`🛠️ Maintenance ${maintenanceMode ? "Activated" : "Deactivated"}`, threadID, messageID);
@@ -117,17 +132,17 @@ module.exports.run = async ({ api, event, args }) => {
       "💠 *PHI AI PRO — Version History*",
       "━━━━━━━━━━━━━━━━━━━",
       "",
-      "🆕 *v10.1.0 (Current)*",
-      "🔹 New API Endpoint integrated",
-      "🔹 Faster response engine",
-      "🔹 Rebranded from Aria to PHI AI",
+      "🆕 *v10.1.1 (Current)*",
+      "🔹 Switched to Gemini Vision API (Rynxx)",
+      "🔹 Better stability and error handling",
+      "🔹 Maintenance command fixed",
       "",
       "⚙️ *v10.0.0*",
       "🔹 39 Settings System added",
       "🔹 Group Admin features (kick, adduser, rules)",
       "🔹 AI Humor + Profanity Filter",
       "",
-      "✨ *Powered by PHI AI x SwordSlush*"
+      "✨ *Powered by PHI AI x SwordSlush x Rynxx*"
     ].join("\n");
 
     return api.sendMessage(updateMessage, threadID, messageID);
@@ -174,7 +189,7 @@ module.exports.run = async ({ api, event, args }) => {
   // 💬 Main PHI Chat
   if (!query)
     return api.sendMessage(
-      "🤖 PHI AI PRO v10.1.0 is online!\nType your question or use:\n`phi settings list`, `phi rules`, `phi kick`, `phi adduser`, `phi update`",
+      "🤖 PHI AI PRO v10.1.1 is online!\nType your question or use:\n`phi settings list`, `phi rules`, `phi kick`, `phi adduser`, `phi update`",
       threadID,
       messageID
     );
@@ -182,13 +197,14 @@ module.exports.run = async ({ api, event, args }) => {
   if (settings.autoReact) api.setMessageReaction("🚀", messageID, () => {}, true);
 
   try {
-    // ✅ Updated API Endpoint
+    // ✅ Updated API Endpoint (Rynxx Gemini Vision)
     const { data } = await axios.get(
-      `https://betadash-api-swordslush-production.up.railway.app/phi?ask=${encodeURIComponent(query)}`
+      `https://api-rynxx.onrender.com/api/gemini-vision?prompt=${encodeURIComponent(query)}&uid=${uid}&imgUrl=`
     );
 
-    let response = data.response || data.answer || "⚠️ Walang sagot mula sa PHI API.";
-    if (settings.boldFormat) response = response.replace(/\*\*(.*?)\*\*/g, (_, t) => `𝗛𝗶𝗴𝗵𝗹𝗶𝗴𝗵𝘁: ${t}`);
+    let response = data.response || data.answer || "⚠️ Walang sagot mula sa Gemini Vision API.";
+    if (settings.boldFormat)
+      response = response.replace(/\*\*(.*?)\*\*/g, (_, t) => bold(t));
 
     const msg = `💠 𝗣𝗛𝗜 𝗣𝗥𝗢 (${settings.fastMode ? "⚡ Fast" : "Normal"})\n━━━━━━━━━━━━━━\n${response}`;
     api.sendMessage(msg, threadID, () => {
@@ -197,6 +213,6 @@ module.exports.run = async ({ api, event, args }) => {
 
   } catch (e) {
     console.error("PHI API Error:", e.message);
-    api.sendMessage("❌ PHI API error. Please try again later.", threadID, messageID);
+    api.sendMessage("❌ Gemini Vision API error. Please try again later.", threadID, messageID);
   }
 };
