@@ -1,48 +1,81 @@
+
 const fs = require('fs-extra');
 const path = require('path');
 
 module.exports.config = {
   name: "autoban",
-  version: "1.0.3",
+  version: "2.0.0",
   hasPermission: 0,
-  description: "Auto-ban spam & bad words sa group, admin lang pwede mag-unban, may time stamp",
-  usages: "[no args]",
-  cooldowns: 5
+  description: "Auto-ban bad words 24/7 sa lahat ng groups",
+  usages: "Auto-running | !unban @user",
+  cooldowns: 0,
+  credits: "Admin"
 };
 
-// List ng spam keywords + Filipino bad words
-const spamKeywords = [
+// Comprehensive Filipino bad words list
+const badWords = [
+  // Original spam keywords
   "free money",
   "click here",
   "subscribe now",
   "buy now",
   "check this out",
   "spamlink.com",
-
+  
+  // Filipino bad words
   "putang ina",
+  "putangina",
+  "puta",
   "puki",
   "gago",
   "tang ina",
   "tangina",
   "tae",
   "bobo",
-  " gago ",
   "ulol",
   "tanga",
-  "baka ka pa",
   "leche",
   "pakshet",
-  "engkanto",
+  "pakyu",
+  "fuck",
   "tarantado",
   "hayup",
-  "pesteng"
+  "peste",
+  "pesteng yawa",
+  "yawa",
+  "bwisit",
+  "punyeta",
+  "kingina",
+  "kantot",
+  "jakol",
+  "tamod",
+  "bayag",
+  "bilat",
+  "burat",
+  "titi",
+  "pepe",
+  "ratbu",
+  "hinayupak",
+  "gaga",
+  "engot",
+  "inutil",
+  "walang kwenta",
+  "putragis",
+  "pokpok",
+  "shunga",
+  "hangal",
+  "gunggong",
+  "walanghiya",
+  "kupal"
 ];
 
-// Path sa file na magtatrack ng banned users per thread
-const banDataPath = path.join(__dirname, 'banData.json');
+const banDataPath = path.join(__dirname, '../banData.json');
 
 function loadBanData() {
-  if (!fs.existsSync(banDataPath)) return {};
+  if (!fs.existsSync(banDataPath)) {
+    fs.writeJSONSync(banDataPath, {});
+    return {};
+  }
   return fs.readJSONSync(banDataPath);
 }
 
@@ -50,7 +83,6 @@ function saveBanData(data) {
   fs.writeJSONSync(banDataPath, data, { spaces: 2 });
 }
 
-// Helper function para kunin ang current Philippine time string
 function getPhilippineTime() {
   return new Date().toLocaleString("en-PH", {
     timeZone: "Asia/Manila",
@@ -64,60 +96,126 @@ function getPhilippineTime() {
   });
 }
 
-module.exports.run = async function({ api, event, args }) {
-  const { threadID, senderID, messageID, body, isGroup, mentions } = event;
+// Main event handler - runs 24/7
+module.exports.handleEvent = async function({ api, event }) {
+  const { threadID, senderID, body, isGroup } = event;
 
-  if (!isGroup) return;
+  // Only monitor group chats
+  if (!isGroup || !body) return;
 
   let banData = loadBanData();
   if (!banData[threadID]) banData[threadID] = [];
 
+  // Check if user is already banned
+  if (banData[threadID].includes(senderID)) return;
+
   const lowerBody = body.toLowerCase();
 
-  // Auto-ban kapag may spam o bad words at hindi pa banned
-  const isSpam = spamKeywords.some(keyword => lowerBody.includes(keyword));
-  if (isSpam && !banData[threadID].includes(senderID)) {
+  // Check for bad words
+  const foundBadWord = badWords.find(word => lowerBody.includes(word.toLowerCase()));
+  
+  if (foundBadWord) {
     try {
+      // Get thread admins to avoid banning them
+      const threadInfo = await api.getThreadInfo(threadID);
+      const isAdmin = threadInfo.adminIDs.some(admin => admin.id === senderID);
+      
+      // Don't ban group admins
+      if (isAdmin) {
+        return api.sendMessage(
+          `⚠️ Admin detected using bad word: "${foundBadWord}"\n💬 Please set a good example for the group.`,
+          threadID
+        );
+      }
+
+      // Remove user from group
       await api.removeUserFromGroup(senderID, threadID);
+      
+      // Add to ban list
       banData[threadID].push(senderID);
       saveBanData(banData);
+      
       const timePH = getPhilippineTime();
-      return api.sendMessage(`🚫 Auto-banned user for using prohibited words or spam.\n⏰ Time: ${timePH}`, threadID);
+      
+      return api.sendMessage(
+        `🚫 AUTO-BAN ACTIVATED\n` +
+        `👤 User has been removed\n` +
+        `⚠️ Reason: Used prohibited word "${foundBadWord}"\n` +
+        `⏰ Time: ${timePH}\n` +
+        `📋 Only admins can unban using: !unban @user`,
+        threadID
+      );
     } catch (err) {
-      console.error("Failed to remove user:", err);
-      return api.sendMessage("❌ Failed to auto-ban user. Check bot permissions.", threadID, messageID);
+      console.error("Auto-ban error:", err);
+      return api.sendMessage(
+        "❌ Failed to auto-ban user. Bot may need admin permissions.",
+        threadID
+      );
     }
   }
+};
 
-  // Command para sa unban - admin lang pwede gumamit
-  if (body.startsWith("!unban")) {
-    const admins = await api.getThreadAdmins(threadID);
-    if (!admins.includes(senderID)) {
-      return api.sendMessage("❌ Wala kang permiso para gamitin ang command na ito.", threadID, messageID);
-    }
+// Command handler for unban
+module.exports.run = async function({ api, event, args }) {
+  const { threadID, senderID, messageID, mentions } = event;
 
-    let targetID = null;
-    if (mentions && Object.keys(mentions).length > 0) {
-      targetID = Object.values(mentions)[0].id;
-    } else if (args[0]) {
-      targetID = args[0];
-    } else {
-      return api.sendMessage("⚠️ I-mention ang user o ilagay ang kanilang ID para ma-unban.", threadID, messageID);
-    }
+  // Check if user is admin
+  const threadInfo = await api.getThreadInfo(threadID);
+  const isAdmin = threadInfo.adminIDs.some(admin => admin.id === senderID);
 
-    if (!banData[threadID] || !banData[threadID].includes(targetID)) {
-      return api.sendMessage("ℹ️ Hindi naka-ban ang user.", threadID, messageID);
-    }
+  if (!isAdmin) {
+    return api.sendMessage(
+      "❌ Only group admins can unban users.",
+      threadID,
+      messageID
+    );
+  }
 
-    try {
-      await api.addUserToGroup(targetID, threadID);
-      banData[threadID] = banData[threadID].filter(id => id !== targetID);
-      saveBanData(banData);
-      const timePH = getPhilippineTime();
-      return api.sendMessage(`✅ Successfully unbanned user.\n⏰ Time: ${timePH}`, threadID);
-    } catch (err) {
-      console.error("Failed to add user:", err);
-      return api.sendMessage("❌ Failed to unban user. Check bot permissions.", threadID, messageID);
-    }
+  let banData = loadBanData();
+  
+  // Get target user ID
+  let targetID = null;
+  if (mentions && Object.keys(mentions).length > 0) {
+    targetID = Object.keys(mentions)[0];
+  } else if (args[0]) {
+    targetID = args[0];
+  } else {
+    return api.sendMessage(
+      "⚠️ Usage: !unban @user or !unban <userID>",
+      threadID,
+      messageID
+    );
+  }
+
+  // Check if user is banned
+  if (!banData[threadID] || !banData[threadID].includes(targetID)) {
+    return api.sendMessage(
+      "ℹ️ User is not in the ban list.",
+      threadID,
+      messageID
+    );
+  }
+
+  try {
+    // Add user back to group
+    await api.addUserToGroup(targetID, threadID);
+    
+    // Remove from ban list
+    banData[threadID] = banData[threadID].filter(id => id !== targetID);
+    saveBanData(banData);
+    
+    const timePH = getPhilippineTime();
+    
+    return api.sendMessage(
+      `✅ User successfully unbanned\n⏰ Time: ${timePH}\n⚠️ Please follow group rules.`,
+      threadID
+    );
+  } catch (err) {
+    console.error("Unban error:", err);
+    return api.sendMessage(
+      "❌ Failed to unban user. They may have blocked the bot or left Facebook.",
+      threadID,
+      messageID
+    );
   }
 };
